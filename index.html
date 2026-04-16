@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Bernardo's Simulator · FIFA World Cup 2026</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#07090f;font-family:Georgia,serif}button{font-family:Georgia,serif}table{border-collapse:collapse}</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script type="text/babel">
+const{useState,useEffect,useCallback}=React;
+
+// ── FIFA RANKINGS April 1 2026 ────────────────────────────────────────────────
+const FIFA_RANK={
+  Mexico:15,"South Africa":60,"Korea Republic":22,Czechia:43,
+  Canada:30,"Bosnia & Herzegovina":66,Qatar:56,Switzerland:19,
+  Brazil:7,Morocco:8,Haiti:83,Scotland:40,
+  USA:16,Paraguay:38,Australia:27,"Türkiye":24,
+  Germany:10,"Curaçao":82,"Côte d'Ivoire":35,Ecuador:23,
+  Netherlands:6,Japan:18,Sweden:41,Tunisia:44,
+  Belgium:9,Egypt:29,"IR Iran":21,"New Zealand":85,
+  Spain:1,"Cabo Verde":70,"Saudi Arabia":61,Uruguay:17,
+  France:2,Senegal:149,Iraq:59,Norway:31,
+  Argentina:3,Algeria:28,Austria:25,Jordan:64,
+  Portugal:5,"Congo DR":48,Uzbekistan:50,Colombia:13,
+  England:4,Croatia:11,Ghana:74,Panama:34,
+};
+const BASE_STR={};
+Object.entries(FIFA_RANK).forEach(([t,r])=>{BASE_STR[t]=Math.max(20,Math.round(99-(r-1)*0.62));});
+
+const LEVELS=[
+  {id:1,label:"⭐ Most Likely",desc:"Rankings dominate. Upsets are very rare.",variance:4,bias:0.85},
+  {id:2,label:"⭐⭐ Probable",desc:"Better teams mostly win. Occasional upsets.",variance:10,bias:0.72},
+  {id:3,label:"⭐⭐⭐ Balanced",desc:"The sweet spot — realistic mix of results.",variance:18,bias:0.60},
+  {id:4,label:"⭐⭐⭐⭐ Surprising",desc:"Major upsets common. Giants can fall.",variance:28,bias:0.52},
+  {id:5,label:"⭐⭐⭐⭐⭐ Chaos",desc:"Anything goes. Any team can beat anyone.",variance:42,bias:0.50},
+];
+const LC=["","#f0c040","#8BC34A","#2196F3","#FF9800","#f44336"];
+
+const GROUPS={
+  A:["Mexico","South Africa","Korea Republic","Czechia"],
+  B:["Canada","Bosnia & Herzegovina","Qatar","Switzerland"],
+  C:["Brazil","Morocco","Haiti","Scotland"],
+  D:["USA","Paraguay","Australia","Türkiye"],
+  E:["Germany","Curaçao","Côte d'Ivoire","Ecuador"],
+  F:["Netherlands","Japan","Sweden","Tunisia"],
+  G:["Belgium","Egypt","IR Iran","New Zealand"],
+  H:["Spain","Cabo Verde","Saudi Arabia","Uruguay"],
+  I:["France","Senegal","Iraq","Norway"],
+  J:["Argentina","Algeria","Austria","Jordan"],
+  K:["Portugal","Congo DR","Uzbekistan","Colombia"],
+  L:["England","Croatia","Ghana","Panama"],
+};
+
+const FLAGS={
+  Mexico:"🇲🇽","South Africa":"🇿🇦","Korea Republic":"🇰🇷",Czechia:"🇨🇿",
+  Canada:"🇨🇦","Bosnia & Herzegovina":"🇧🇦",Qatar:"🇶🇦",Switzerland:"🇨🇭",
+  Brazil:"🇧🇷",Morocco:"🇲🇦",Haiti:"🇭🇹",Scotland:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  USA:"🇺🇸",Paraguay:"🇵🇾",Australia:"🇦🇺","Türkiye":"🇹🇷",
+  Germany:"🇩🇪","Curaçao":"🇨🇼","Côte d'Ivoire":"🇨🇮",Ecuador:"🇪🇨",
+  Netherlands:"🇳🇱",Japan:"🇯🇵",Sweden:"🇸🇪",Tunisia:"🇹🇳",
+  Belgium:"🇧🇪",Egypt:"🇪🇬","IR Iran":"🇮🇷","New Zealand":"🇳🇿",
+  Spain:"🇪🇸","Cabo Verde":"🇨🇻","Saudi Arabia":"🇸🇦",Uruguay:"🇺🇾",
+  France:"🇫🇷",Senegal:"🇸🇳",Iraq:"🇮🇶",Norway:"🇳🇴",
+  Argentina:"🇦🇷",Algeria:"🇩🇿",Austria:"🇦🇹",Jordan:"🇯🇴",
+  Portugal:"🇵🇹","Congo DR":"🇨🇩",Uzbekistan:"🇺🇿",Colombia:"🇨🇴",
+  England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦",
+};
+
+const GV={A:"Mexico City/Guadalajara",B:"Toronto/SF Bay Area",C:"Boston/NY-NJ",D:"LA/SF Bay Area",
+  E:"Houston/Kansas City",F:"Seattle/Vancouver",G:"Atlanta/Miami",H:"Houston/Kansas City",
+  I:"Boston/Kansas City",J:"Dallas/Miami",K:"Philadelphia/Toronto",L:"Boston/Atlanta"};
+
+const KV={M73:"Los Angeles",M74:"Boston",M75:"Guadalajara",M76:"Houston",M77:"New York/NJ",
+  M78:"Dallas",M79:"Mexico City",M80:"Atlanta",M81:"SF Bay Area",M82:"Seattle",M83:"Toronto",
+  M84:"Los Angeles",M85:"Vancouver",M86:"Miami",M87:"Kansas City",M88:"Dallas",
+  M89:"Houston",M90:"Philadelphia",M91:"New York/NJ",M92:"Mexico City",M93:"Seattle",
+  M94:"Dallas",M95:"Atlanta",M96:"Vancouver",M97:"Boston",M98:"Seattle",M99:"New York/NJ",
+  M100:"Dallas",M101:"Dallas",M102:"Atlanta",M103:"Miami",M104:"New York/NJ"};
+
+const COMBOS={
+  "EFGHIJKL":"E,J,I,F,H,G,L,K","DFGHIJKL":"H,G,I,D,J,F,L,K","DEGHIJKL":"E,J,I,D,H,G,L,K",
+  "DEFHIJKL":"E,J,I,D,H,F,L,K","DEFGIJKL":"E,G,I,D,J,F,L,K","DEFGHJKL":"E,G,J,D,H,F,L,K",
+  "DEFGHIKL":"E,G,I,D,H,F,L,K","DEFGHIJL":"E,G,J,D,H,F,L,I","DEFGHIJK":"E,G,J,D,H,F,I,K",
+  "CFGHIJKL":"H,G,I,C,J,F,L,K","CEGHIJKL":"E,J,I,C,H,G,L,K","CEFHIJKL":"E,J,I,C,H,F,L,K",
+  "CEFGIJKL":"E,G,I,C,J,F,L,K","CEFGHJKL":"E,G,J,C,H,F,L,K","CEFGHIKL":"E,G,I,C,H,F,L,K",
+  "CEFGHIJL":"E,G,J,C,H,F,L,I","CEFGHIJK":"E,G,J,C,H,F,I,K","CDGHIJKL":"H,G,I,C,J,D,L,K",
+  "CDFHIJKL":"C,J,I,D,H,F,L,K","CDFGIJKL":"C,G,I,D,J,F,L,K","CDFGHJKL":"C,G,J,D,H,F,L,K",
+  "CDFGHIKL":"C,G,I,D,H,F,L,K","CDFGHIJL":"C,G,J,D,H,F,L,I","CDFGHIJK":"C,G,J,D,H,F,I,K",
+  "CDEHIJKL":"E,J,I,C,H,D,L,K","CDEGIJKL":"E,G,I,C,J,D,L,K","CDEGHJKL":"E,G,J,C,H,D,L,K",
+  "CDEGHIKL":"E,G,I,C,H,D,L,K","CDEGHIJL":"E,G,J,C,H,D,L,I","CDEGHIJK":"E,G,J,C,H,D,I,K",
+  "CDEFIJKL":"C,J,E,D,I,F,L,K","CDEFHJKL":"C,J,E,D,H,F,L,K","CDEFHIKL":"C,E,I,D,H,F,L,K",
+  "CDEFHIJL":"C,J,E,D,H,F,L,I","CDEFHIJK":"C,J,E,D,H,F,I,K","CDEFGJKL":"C,G,E,D,J,F,L,K",
+  "CDEFGIKL":"C,G,E,D,I,F,L,K","CDEFGIJL":"C,G,E,D,J,F,L,I","CDEFGIJK":"C,G,E,D,J,F,I,K",
+  "CDEFGHKL":"C,G,E,D,H,F,L,K","CDEFGHJL":"C,G,J,D,H,F,L,E","CDEFGHJK":"C,G,J,D,H,F,E,K",
+  "CDEFGHIL":"C,G,E,D,H,F,L,I","CDEFGHIK":"C,G,E,D,H,F,I,K","CDEFGHIJ":"C,G,J,D,H,F,E,I",
+  "BFGHIJKL":"H,J,B,F,I,G,L,K","BEGHIJKL":"E,J,I,B,H,G,L,K","BEFHIJKL":"E,J,B,F,I,H,L,K",
+  "BEFGIJKL":"E,J,B,F,I,G,L,K","BEFGHJKL":"E,J,B,F,H,G,L,K","BEFGHIKL":"E,G,B,F,I,H,L,K",
+  "BEFGHIJL":"E,J,B,F,H,G,L,I","BEFGHIJK":"E,J,B,F,H,G,I,K","BDGHIJKL":"H,J,B,D,I,G,L,K",
+  "BDFHIJKL":"H,J,B,D,I,F,L,K","BDFGIJKL":"I,G,B,D,J,F,L,K","BDFGHJKL":"H,G,B,D,J,F,L,K",
+  "BDFGHIKL":"H,G,B,D,I,F,L,K","BDFGHIJL":"H,G,B,D,J,F,L,I","BDFGHIJK":"H,G,B,D,J,F,I,K",
+  "BDEHIJKL":"E,J,B,D,I,H,L,K","BDEGIJKL":"E,J,B,D,I,G,L,K","BDEGHJKL":"E,J,B,D,H,G,L,K",
+  "BDEGHIKL":"E,G,B,D,I,H,L,K","BDEGHIJL":"E,J,B,D,H,G,L,I","BDEGHIJK":"E,J,B,D,H,G,I,K",
+  "BDEFIJKL":"E,J,B,D,I,F,L,K","BDEFHJKL":"E,J,B,D,H,F,L,K","BDEFHIKL":"E,I,B,D,H,F,L,K",
+  "BDEFHIJL":"E,J,B,D,H,F,L,I","BDEFHIJK":"E,J,B,D,H,F,I,K","BDEFGJKL":"E,G,B,D,J,F,L,K",
+  "BDEFGIKL":"E,G,B,D,I,F,L,K","BDEFGIJL":"E,G,B,D,J,F,L,I","BDEFGIJK":"E,G,B,D,J,F,I,K",
+  "BDEFGHKL":"E,G,B,D,H,F,L,K","BDEFGHJL":"H,G,B,D,J,F,L,E","BDEFGHJK":"H,G,B,D,J,F,E,K",
+  "BDEFGHIL":"H,G,B,D,J,F,L,I","BDEFGHIK":"E,G,B,D,H,F,I,K","BDEFGHIJ":"E,G,B,D,H,F,I,J",
+};
+
+function parseCombo(raw){const p=raw.split(",");return{m79:p[0],m85:p[1],m81:p[2],m74:p[3],m82:p[4],m77:p[5],m87:p[6],m80:p[7]};}
+const fl=t=>FLAGS[t]||"🏳️";
+
+// ── SIMULATION ────────────────────────────────────────────────────────────────
+function simScore(tA,tB,variance){
+  const sa=BASE_STR[tA]||45,sb=BASE_STR[tB]||45,diff=sa-sb;
+  const noise=()=>(Math.random()+Math.random()+Math.random()-1.5)*variance*0.07;
+  return[Math.max(0,Math.round(1.2+diff*0.035+noise())),Math.max(0,Math.round(1.2-diff*0.035+noise()))];
+}
+function simKO(tA,tB,variance,bias){
+  if(!tA||!tB||tA===tB)return{a:tA||"TBD",b:tB||"TBD",sa:0,sb:0,w:tA||tB};
+  let[sa,sb]=simScore(tA,tB,variance);
+  if(sa===sb){const pA=bias*(BASE_STR[tA]||45)/((BASE_STR[tA]||45)+(BASE_STR[tB]||45))+(1-bias)*0.5;if(Math.random()<pA)sa++;else sb++;}
+  return{a:tA,b:tB,sa,sb,w:sa>sb?tA:tB};
+}
+function simGroup(teams,variance){
+  const pts={},gf={},ga={},wins={},draws={},losses={};
+  teams.forEach(t=>{pts[t]=0;gf[t]=0;ga[t]=0;wins[t]=0;draws[t]=0;losses[t]=0;});
+  const matches=[];
+  for(let i=0;i<teams.length;i++)for(let j=i+1;j<teams.length;j++){
+    const ta=teams[i],tb=teams[j],[sa,sb]=simScore(ta,tb,variance);
+    gf[ta]+=sa;ga[ta]+=sb;gf[tb]+=sb;ga[tb]+=sa;
+    if(sa>sb){pts[ta]+=3;wins[ta]++;losses[tb]++;}
+    else if(sb>sa){pts[tb]+=3;wins[tb]++;losses[ta]++;}
+    else{pts[ta]++;pts[tb]++;draws[ta]++;draws[tb]++;}
+    matches.push({a:ta,b:tb,sa,sb});
+  }
+  const gd=t=>gf[t]-ga[t];
+  const sorted=[...teams].sort((tx,ty)=>(pts[ty]-pts[tx])||(gd(ty)-gd(tx))||(gf[ty]-gf[tx])||((BASE_STR[ty]||45)-(BASE_STR[tx]||45)));
+  return{p1:sorted[0],p2:sorted[1],p3:sorted[2],p4:sorted[3],pts,gf,ga,wins,draws,losses,matches};
+}
+
+function runSim(levelId){
+  const lv=LEVELS.find(l=>l.id===levelId)||LEVELS[2];
+  const{variance,bias}=lv;
+  const gr={};
+  Object.entries(GROUPS).forEach(([g,teams])=>{gr[g]=simGroup(teams,variance);});
+  const allThirds=Object.entries(gr).map(([g,r])=>({group:g,team:r.p3,pts:r.pts[r.p3],gd:r.gf[r.p3]-r.ga[r.p3],gf:r.gf[r.p3]}))
+    .sort((tx,ty)=>(ty.pts-tx.pts)||(ty.gd-tx.gd)||(ty.gf-tx.gf)||((BASE_STR[ty.team]||45)-(BASE_STR[tx.team]||45)));
+  const best8=allThirds.slice(0,8);
+  const t3={};best8.forEach(x=>{t3[x.group]=x.team;});
+  const key=[...best8.map(x=>x.group)].sort().join("");
+  const combo=COMBOS[key]?parseCombo(COMBOS[key]):null;
+  const t3used=new Set();
+  const safe3=g=>{const t=t3[g];if(t&&!t3used.has(t)){t3used.add(t);return t;}for(const x of best8){if(!t3used.has(x.team)){t3used.add(x.team);return x.team;}}return "TBD";};
+  const safe3fb=pool=>{for(const g of pool.split("")){const t=t3[g];if(t&&!t3used.has(t)){t3used.add(t);return t;}}for(const x of best8){if(!t3used.has(x.team)){t3used.add(x.team);return x.team;}}return "TBD";};
+  const opp=combo
+    ?{m74:safe3(combo.m74),m77:safe3(combo.m77),m79:safe3(combo.m79),m80:safe3(combo.m80),m81:safe3(combo.m81),m82:safe3(combo.m82),m85:safe3(combo.m85),m87:safe3(combo.m87)}
+    :{m74:safe3fb("ABCDF"),m77:safe3fb("CDFGH"),m79:safe3fb("CEFHI"),m80:safe3fb("EHIJK"),m81:safe3fb("BEFIJ"),m82:safe3fb("AEHIJ"),m85:safe3fb("EFGIJ"),m87:safe3fb("DEIJL")};
+  const mk=(id,tA,tB)=>{const m=simKO(tA,tB,variance,bias);return{...m,id,venue:KV[id]||"?"};};
+  const r32=[
+    mk("M73",gr.A.p2,gr.B.p2),mk("M74",gr.E.p1,opp.m74),mk("M75",gr.F.p1,gr.C.p2),mk("M76",gr.C.p1,gr.F.p2),
+    mk("M77",gr.I.p1,opp.m77),mk("M78",gr.E.p2,gr.I.p2),mk("M79",gr.A.p1,opp.m79),mk("M80",gr.L.p1,opp.m80),
+    mk("M81",gr.D.p1,opp.m81),mk("M82",gr.G.p1,opp.m82),mk("M83",gr.K.p2,gr.L.p2),mk("M84",gr.H.p1,gr.J.p2),
+    mk("M85",gr.B.p1,opp.m85),mk("M86",gr.J.p1,gr.H.p2),mk("M87",gr.K.p1,opp.m87),mk("M88",gr.D.p2,gr.G.p2),
+  ];
+  const W={};r32.forEach(m=>{W[m.id]=m.w;});
+  const r16=[mk("M89",W.M73,W.M75),mk("M90",W.M74,W.M77),mk("M91",W.M76,W.M78),mk("M92",W.M79,W.M80),
+    mk("M93",W.M81,W.M82),mk("M94",W.M83,W.M84),mk("M95",W.M86,W.M88),mk("M96",W.M85,W.M87)];
+  r16.forEach(m=>{W[m.id]=m.w;});
+  const qf=[mk("M97",W.M89,W.M90),mk("M98",W.M91,W.M92),mk("M99",W.M93,W.M94),mk("M100",W.M95,W.M96)];
+  qf.forEach(m=>{W[m.id]=m.w;});
+  const sf=[mk("M101",W.M97,W.M98),mk("M102",W.M99,W.M100)];
+  sf.forEach(m=>{W[m.id]=m.w;});
+  const sf1l=sf[0].a===sf[0].w?sf[0].b:sf[0].a,sf2l=sf[1].a===sf[1].w?sf[1].b:sf[1].a;
+  const bronze=mk("M103",sf1l,sf2l),final=mk("M104",W.M101,W.M102);
+  const CIRCLED=new Set(["M79","M84","M92","M95","M97","M102","M104"]);
+  return{gr,best8,r32,r16,qf,sf,bronze,final,CIRCLED};
+}
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+const C={bg:"#07090f",surface:"#0d1422",card:"#111827",border:"#1c2d45",gold:"#f0c040",
+  goldDim:"#6b5518",green:"#219150",red:"#c0392b",text:"#dde3f0",muted:"#5a6a88",accent:"#3478d4"};
+
+// ── BRACKET CONSTANTS ─────────────────────────────────────────────────────────
+const CW=178,CH=70,CG=6,COL=24,HDR=20;
+const BH=HDR+(CH+CG)*8+20;
+function slotY(r,s){const u=CH+CG,sp=u*Math.pow(2,r),ft=HDR+sp/2-CH/2;return ft+s*sp+CH/2;}
+
+// ── COMPONENTS ────────────────────────────────────────────────────────────────
+function BCard({m,circled}){
+  if(!m)return <div style={{width:CW,height:CH,background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}/>;
+  const aw=m.w===m.a,bw=m.w===m.b;
+  return(
+    <div style={{width:CW,background:circled?"linear-gradient(135deg,#1e1900,#0d1500)":C.card,
+      border:`1.5px solid ${circled?C.gold:C.border}`,borderRadius:7,padding:"5px 7px",
+      boxShadow:circled?`0 0 14px ${C.gold}55`:"none",position:"relative",boxSizing:"border-box"}}>
+      {circled&&<div style={{position:"absolute",top:-6,right:4,fontSize:7,background:C.gold,color:"#000",borderRadius:3,padding:"1px 4px",fontWeight:"800"}}>🟣</div>}
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:circled?C.gold:C.muted,marginBottom:3}}>
+        <b>{m.id}</b><span style={{maxWidth:84,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
+      </div>
+      {[{t:m.a,s:m.sa,w:aw},{t:m.b,s:m.sb,w:bw}].map((row,i)=>(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
+          <span style={{fontSize:12,lineHeight:1}}>{fl(row.t)}</span>
+          <span style={{fontSize:7,color:C.muted,minWidth:18}}>#{FIFA_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:10,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t||"TBD"}</span>
+          <b style={{fontSize:12,color:row.w?C.gold:"#777",minWidth:14,textAlign:"right"}}>{row.s}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HalfBracket({rounds,direction,circled}){
+  const ltr=direction==="ltr",nC=rounds.length,W=nC*(CW+COL)-COL;
+  const lines=[];
+  for(let r=0;r<nC-1;r++){
+    const nD=rounds[r+1].length;
+    for(let d=0;d<nD;d++){
+      const s1=d*2,s2=d*2+1,y1=slotY(r,s1),y2=slotY(r,s2),yD=slotY(r+1,d),yM=(y1+y2)/2;
+      const cR=ltr?r:nC-1-r,cD=ltr?r+1:nC-2-r;
+      const xS=ltr?cR*(CW+COL)+CW:cR*(CW+COL),xD=ltr?cD*(CW+COL):cD*(CW+COL)+CW,xM=ltr?xS+COL/2:xS-COL/2;
+      lines.push(<g key={`${r}-${d}`}>
+        <line x1={xS} y1={y1} x2={xM} y2={y1} stroke="#243447" strokeWidth="1.5"/>
+        <line x1={xS} y1={y2} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+        <line x1={xM} y1={y1} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+        <line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
+        {yM!==yD&&<line x1={xD} y1={yM} x2={xD} y2={yD} stroke={C.accent} strokeWidth="1.5"/>}
+      </g>);
+    }
+  }
+  const LBLS=ltr?["R32","R16","QF","SF"]:["SF","QF","R16","R32"];
+  return(
+    <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
+      <svg style={{position:"absolute",top:0,left:0,width:W,height:BH,pointerEvents:"none"}}>{lines}</svg>
+      {rounds.map((_,r)=>{
+        const col=ltr?r:nC-1-r;
+        return <div key={r} style={{position:"absolute",top:0,left:col*(CW+COL),width:CW,textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>;
+      })}
+      {rounds.map((ms,r)=>ms.map((m,s)=>{
+        const col=ltr?r:nC-1-r,cy=slotY(r,s);
+        return <div key={m?.id||`${r}-${s}`} style={{position:"absolute",top:cy-CH/2,left:col*(CW+COL)}}><BCard m={m} circled={circled?.has(m?.id)}/></div>;
+      }))}
+    </div>
+  );
+}
+
+function FinalCard({final}){
+  const aw=final.w===final.a,bw=final.w===final.b;
+  return(
+    <div style={{width:190,background:"linear-gradient(160deg,#1a1300,#091400)",border:`2px solid ${C.gold}`,borderRadius:12,
+      padding:"9px 11px",boxShadow:`0 0 32px ${C.gold}66`,flexShrink:0,alignSelf:"center"}}>
+      <div style={{textAlign:"center",marginBottom:7}}>
+        <div style={{fontSize:7.5,color:C.gold,letterSpacing:3,fontWeight:"800"}}>🏆 THE FINAL</div>
+        <div style={{fontSize:7,color:C.muted,marginTop:1}}>M104 · MetLife · NY/NJ · Jul 19</div>
+      </div>
+      {[{t:final.a,s:final.sa,w:aw},{t:final.b,s:final.sb,w:bw}].map((row,i)=>(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 0",borderTop:`1px solid ${C.border}`}}>
+          <span style={{fontSize:20}}>{fl(row.t)}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:7,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</div>
+            <div style={{fontSize:11,fontWeight:row.w?"800":"400",color:row.w?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t}</div>
+          </div>
+          <b style={{fontSize:17,color:row.w?C.gold:"#777"}}>{row.s}</b>
+        </div>
+      ))}
+      <div style={{marginTop:7,textAlign:"center",padding:"5px",background:"rgba(240,192,64,0.14)",borderRadius:7,border:`1px solid ${C.goldDim}`}}>
+        <div style={{fontSize:18}}>{fl(final.w)}</div>
+        <div style={{fontSize:11,fontWeight:"900",color:C.gold}}>{final.w}</div>
+        <div style={{fontSize:7,color:C.muted,letterSpacing:1}}>WORLD CHAMPION</div>
+      </div>
+    </div>
+  );
+}
+
+function VisualBracket({sim}){
+  const L_R32=["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>sim.r32.find(m=>m.id===id));
+  const L_R16=["M89","M90","M91","M92"].map(id=>sim.r16.find(m=>m.id===id));
+  const L_QF=["M97","M98"].map(id=>sim.qf.find(m=>m.id===id));
+  const R_R32=["M81","M82","M83","M84","M85","M86","M87","M88"].map(id=>sim.r32.find(m=>m.id===id));
+  const R_R16=["M93","M94","M95","M96"].map(id=>sim.r16.find(m=>m.id===id));
+  const R_QF=["M99","M100"].map(id=>sim.qf.find(m=>m.id===id));
+  const FW=190+COL*2,sfY=slotY(3,0);
+  return(
+    <div style={{overflowX:"auto",paddingBottom:12}}>
+      <div style={{fontSize:8,color:C.muted,marginBottom:8,textAlign:"center"}}>← Left converges to Final · Right converges in mirror → · Scroll to view full bracket</div>
+      <div style={{display:"flex",alignItems:"flex-start"}}>
+        <HalfBracket rounds={[L_R32,L_R16,L_QF,[sim.sf[0]]]} direction="ltr" circled={sim.CIRCLED}/>
+        <div style={{width:FW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg style={{position:"absolute",top:0,left:0,width:FW,height:BH,pointerEvents:"none"}}>
+            <line x1={0} y1={sfY} x2={COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+            <line x1={COL} y1={sfY} x2={COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+            <line x1={COL} y1={BH/2} x2={FW/2-95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+            <line x1={FW} y1={sfY} x2={FW-COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+            <line x1={FW-COL} y1={sfY} x2={FW-COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+            <line x1={FW-COL} y1={BH/2} x2={FW/2+95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+          </svg>
+          <FinalCard final={sim.final}/>
+        </div>
+        <HalfBracket rounds={[[sim.sf[1]],R_QF,R_R16,R_R32]} direction="rtl" circled={sim.CIRCLED}/>
+      </div>
+      <div style={{display:"flex",gap:14,justifyContent:"center",marginTop:10,flexWrap:"wrap"}}>
+        {[{c:"#243447",l:"Feeders"},{c:C.accent,l:"Winner advances"},{c:C.gold,l:"🟣 Your ticket"}].map((x,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:5,fontSize:8,color:C.muted}}>
+            <div style={{width:16,height:2,background:x.c}}/>{x.l}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GroupTable({grp,data}){
+  const teams=[data.p1,data.p2,data.p3,data.p4];
+  return(
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",marginBottom:12}}>
+      <div style={{background:"linear-gradient(90deg,#091428,#0d1f3c)",padding:"7px 11px",display:"flex",alignItems:"center",gap:8,borderBottom:`1px solid ${C.border}`}}>
+        <div style={{width:22,height:22,borderRadius:5,background:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",fontSize:12,color:"#000"}}>{grp}</div>
+        <span style={{fontSize:10,color:C.muted,letterSpacing:2}}>GROUP {grp} · {GV[grp]}</span>
+      </div>
+      <table style={{width:"100%",fontSize:11}}>
+        <thead>
+          <tr style={{background:C.surface}}>
+            {["","Team","Rank","W","D","L","GF","GA","GD","Pts"].map((h,i)=>(
+              <th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Team"?"left":"center",fontSize:10}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t,i)=>{
+            const gd=data.gf[t]-data.ga[t];
+            return(
+              <tr key={t} style={{borderTop:`1px solid ${C.border}`,background:i===0?"rgba(240,192,64,0.06)":i===1?"rgba(52,120,212,0.06)":i===2?"rgba(33,145,80,0.04)":"transparent"}}>
+                <td style={{padding:"5px 6px",textAlign:"center"}}>
+                  <span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#1a3a20":"#222",color:i<3?"#000":"#555"}}>{i+1}</span>
+                </td>
+                <td style={{padding:"5px 6px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:15}}>{fl(t)}</span>
+                    <span style={{color:i<2?C.text:i===2?"#8a9ab0":"#4a5a70",fontWeight:i<2?"600":"400",fontSize:11}}>{t}</span>
+                    {i===0&&<span style={{fontSize:8,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1ST</span>}
+                    {i===1&&<span style={{fontSize:8,background:C.accent,color:"#fff",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2ND</span>}
+                    {i===2&&<span style={{fontSize:8,background:"#152a1a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3RD?</span>}
+                  </div>
+                </td>
+                <td style={{padding:"5px",textAlign:"center"}}><span style={{fontSize:10,color:i<2?C.gold:C.muted,fontWeight:i<2?"700":"400"}}>#{FIFA_RANK[t]||"?"}</span></td>
+                {[data.wins[t],data.draws[t],data.losses[t],data.gf[t],data.ga[t]].map((v,j)=>(
+                  <td key={j} style={{padding:"5px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>
+                ))}
+                <td style={{padding:"5px",textAlign:"center",color:gd>0?C.green:gd<0?C.red:C.muted,fontWeight:"600",fontSize:11}}>{gd>0?"+":""}{gd}</td>
+                <td style={{padding:"5px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[t]}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div style={{padding:"7px 10px",borderTop:`1px solid ${C.border}`,background:C.surface}}>
+        <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>MATCH RESULTS</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:3}}>
+          {data.matches.map((m,i)=>(
+            <div key={i} style={{background:C.card,borderRadius:5,padding:"3px 5px",border:`1px solid ${C.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:3}}>
+                <span style={{fontSize:9,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sa>m.sb?C.gold:C.muted}}>{fl(m.a)} {m.a.split(" ")[0]}</span>
+                <b style={{fontSize:10,color:"#ddd",whiteSpace:"nowrap"}}>{m.sa}–{m.sb}</b>
+                <span style={{fontSize:9,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sb>m.sa?C.gold:C.muted}}>{m.b.split(" ")[0]} {fl(m.b)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MCard({m,circled}){
+  return(
+    <div style={{background:circled?"rgba(240,192,64,0.05)":C.card,border:`1px solid ${circled?C.gold:C.border}`,borderRadius:10,padding:"9px 11px",boxShadow:circled?`0 0 10px ${C.gold}33`:"none"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:5}}>
+        <b style={{color:circled?C.gold:C.muted}}>{m.id}{circled?" 🟣":""}</b>
+        <span style={{maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
+      </div>
+      {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
+        <div key={j} style={{display:"flex",alignItems:"center",gap:4,marginBottom:j===0?4:0}}>
+          <span style={{fontSize:17}}>{fl(row.t)}</span>
+          <span style={{fontSize:8,color:C.muted,minWidth:22}}>#{FIFA_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
+          <b style={{fontSize:14,color:row.w?C.gold:"#888"}}>{row.s}</b>
+        </div>
+      ))}
+      <div style={{marginTop:5,fontSize:9,color:C.green,fontWeight:"700"}}>✓ {fl(m.w)} {m.w} advances</div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+function App(){
+  const[levelId,setLevelId]=useState(3);
+  const[sim,setSim]=useState(null);
+  const[tab,setTab]=useState("groups");
+  const[grpPage,setGrpPage]=useState(0);
+  const resim=useCallback(()=>setSim(runSim(levelId)),[levelId]);
+  useEffect(()=>{setSim(runSim(levelId));},[levelId]);
+
+  if(!sim)return <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontSize:18}}>⚽ Simulating…</div>;
+
+  const TABS=[{id:"groups",label:"👥 Groups"},{id:"bracket",label:"🏟️ Bracket"},{id:"r32",label:"⚔️ R32"},
+    {id:"r16",label:"🔵 R16"},{id:"qfsf",label:"🔥 QF/SF"},{id:"final",label:"🥇 Final"},{id:"circled",label:"🟣 My Games"}];
+
+  const circledList=[
+    {label:"R32 · Los Angeles",     m:sim.r32.find(m=>m.id==="M84")},
+    {label:"R32 · Mexico City",     m:sim.r32.find(m=>m.id==="M79")},
+    {label:"R16 · Mexico City",     m:sim.r16.find(m=>m.id==="M92")},
+    {label:"R16 · Atlanta",         m:sim.r16.find(m=>m.id==="M95")},
+    {label:"QF · Boston",           m:sim.qf.find(m=>m.id==="M97")},
+    {label:"SF · Atlanta",          m:sim.sf.find(m=>m.id==="M102")},
+    {label:"🏆 Final · New York/NJ",m:sim.final},
+  ];
+
+  const curLevel=LEVELS.find(l=>l.id===levelId);
+
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40}}>
+
+      <div style={{background:"linear-gradient(180deg,#0c1528,#07090f)",borderBottom:`2px solid ${C.gold}`,padding:"12px 14px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          <div>
+            <div style={{fontSize:9,letterSpacing:6,color:C.gold,fontWeight:"700"}}>FIFA™</div>
+            <div style={{fontSize:20,fontWeight:"900",color:"#fff",letterSpacing:1}}>WORLD CUP 2026</div>
+            <div style={{fontSize:8,color:C.muted,letterSpacing:3}}>FULL TOURNAMENT SIMULATOR · REAL RANKINGS</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>CHAMPION</div>
+            <div style={{fontSize:17,fontWeight:"700",color:C.gold}}>{fl(sim.final.w)} {sim.final.w}</div>
+            <div style={{fontSize:8.5,color:C.muted}}>#{FIFA_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
+          </div>
+        </div>
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:6}}>SIMULATION LEVEL</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {LEVELS.map(lv=>(
+              <button key={lv.id} onClick={()=>setLevelId(lv.id)} style={{padding:"4px 8px",borderRadius:7,cursor:"pointer",fontSize:10,fontFamily:"Georgia,serif",
+                background:levelId===lv.id?`${LC[lv.id]}22`:"transparent",color:levelId===lv.id?LC[lv.id]:C.muted,
+                border:`1.5px solid ${levelId===lv.id?LC[lv.id]:C.border}`,fontWeight:levelId===lv.id?"700":"400"}}>
+                {lv.label}
+              </button>
+            ))}
+          </div>
+          {curLevel&&<div style={{marginTop:5,fontSize:8.5,color:LC[levelId],fontStyle:"italic"}}>{curLevel.desc}</div>}
+        </div>
+        <button onClick={resim} style={{marginTop:8,padding:"4px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,cursor:"pointer",fontSize:10,letterSpacing:1}}>
+          🔄 RE-SIMULATE
+        </button>
+      </div>
+
+      <div style={{display:"flex",overflowX:"auto",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",
+            color:tab===t.id?C.gold:C.muted,borderBottom:tab===t.id?`2px solid ${C.gold}`:"2px solid transparent",
+            cursor:"pointer",fontSize:11,fontWeight:tab===t.id?"700":"400",fontFamily:"Georgia,serif"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"12px 14px"}}>
+
+        {tab==="groups"&&(
+          <div>
+            <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+              {["A–F","G–L"].map((l,i)=>(
+                <button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?"rgba(240,192,64,0.08)":"transparent",color:grpPage===i?C.gold:C.muted,cursor:"pointer",fontSize:10}}>
+                  Groups {l}
+                </button>
+              ))}
+              <span style={{fontSize:8,color:C.muted}}>Best 3rd: {sim.best8.map(x=>`${x.team.split(" ")[0]}(G${x.group}·#${FIFA_RANK[x.team]||"?"})`).join(", ")}</span>
+            </div>
+            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g))
+              .map(([g,data])=><GroupTable key={g} grp={g} data={data}/>)}
+          </div>
+        )}
+
+        {tab==="bracket"&&<VisualBracket sim={sim}/>}
+
+        {tab==="r32"&&(
+          <div>
+            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 MATCHES · JUNE 28 – JULY 3</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {sim.r32.map((m,i)=><MCard key={i} m={m} circled={sim.CIRCLED.has(m.id)}/>)}
+            </div>
+          </div>
+        )}
+
+        {tab==="r16"&&(
+          <div>
+            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 MATCHES · JULY 4–7</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {sim.r16.map((m,i)=><MCard key={i} m={m} circled={sim.CIRCLED.has(m.id)}/>)}
+            </div>
+          </div>
+        )}
+
+        {tab==="qfsf"&&(
+          <div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>QUARTER-FINALS · JULY 9–10</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              {sim.qf.map((m,i)=>(
+                <div key={i} style={{background:sim.CIRCLED.has(m.id)?"rgba(240,192,64,0.07)":C.card,border:`2px solid ${sim.CIRCLED.has(m.id)?C.gold:C.border}`,borderRadius:12,padding:"10px 12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:6}}>
+                    <b style={{color:sim.CIRCLED.has(m.id)?C.gold:C.muted}}>{m.id}{sim.CIRCLED.has(m.id)?" 🟣":""}</b><span>{m.venue}</span>
+                  </div>
+                  {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
+                    <div key={j} style={{display:"flex",alignItems:"center",gap:5,marginBottom:j===0?5:0}}>
+                      <span style={{fontSize:20}}>{fl(row.t)}</span>
+                      <span style={{fontSize:8,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+                      <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
+                      <b style={{fontSize:15,color:row.w?C.gold:"#888"}}>{row.s}</b>
+                    </div>
+                  ))}
+                  <div style={{marginTop:6,fontSize:10,color:C.green,fontWeight:"700"}}>→ {fl(m.w)} {m.w}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMI-FINALS · JULY 13–15</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {sim.sf.map((m,i)=>(
+                <div key={i} style={{background:sim.CIRCLED.has(m.id)?"rgba(240,192,64,0.07)":C.card,border:`2px solid ${sim.CIRCLED.has(m.id)?C.gold:C.border}`,borderRadius:12,padding:"10px 12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:6}}>
+                    <b style={{color:sim.CIRCLED.has(m.id)?C.gold:C.muted}}>{m.id}{sim.CIRCLED.has(m.id)?" 🟣":""}</b><span>{m.venue}</span>
+                  </div>
+                  {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
+                    <div key={j} style={{display:"flex",alignItems:"center",gap:5,marginBottom:j===0?5:0}}>
+                      <span style={{fontSize:20}}>{fl(row.t)}</span>
+                      <span style={{fontSize:8,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+                      <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
+                      <b style={{fontSize:15,color:row.w?C.gold:"#888"}}>{row.s}</b>
+                    </div>
+                  ))}
+                  <div style={{marginTop:6,fontSize:10,color:C.green,fontWeight:"700"}}>→ {fl(m.w)} {m.w} to FINAL</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab==="final"&&(
+          <div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"11px",marginBottom:12}}>
+              <div style={{fontSize:8.5,color:C.muted,letterSpacing:2,marginBottom:7}}>🥉 THIRD PLACE · {sim.bronze.venue} · July 18</div>
+              {[{t:sim.bronze.a,s:sim.bronze.sa,w:sim.bronze.w===sim.bronze.a},{t:sim.bronze.b,s:sim.bronze.sb,w:sim.bronze.w===sim.bronze.b}].map((row,j)=>(
+                <div key={j} style={{display:"flex",alignItems:"center",gap:8,marginBottom:j===0?6:0}}>
+                  <span style={{fontSize:26}}>{fl(row.t)}</span>
+                  <span style={{fontSize:8.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+                  <span style={{fontSize:14,color:row.w?"#cd7f32":C.muted,fontWeight:row.w?"700":"400",flex:1}}>{row.t}</span>
+                  <b style={{fontSize:18,color:row.w?"#cd7f32":"#888"}}>{row.s}</b>
+                </div>
+              ))}
+              <div style={{marginTop:7,fontSize:10,color:"#cd7f32",fontWeight:"700"}}>🥉 {fl(sim.bronze.w)} {sim.bronze.w}</div>
+            </div>
+            <div style={{background:"linear-gradient(135deg,#100d00,#0a1200)",border:`2px solid ${C.gold}`,borderRadius:16,padding:"16px",boxShadow:`0 0 40px ${C.gold}44`,position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 0%,rgba(240,192,64,0.1),transparent 70%)",pointerEvents:"none"}}/>
+              <div style={{textAlign:"center",marginBottom:14}}>
+                <div style={{fontSize:9,color:C.gold,letterSpacing:5,fontWeight:"700"}}>🏆 THE FINAL</div>
+                <div style={{fontSize:9,color:C.muted,marginTop:2}}>M104 · MetLife Stadium, East Rutherford NJ · July 19 2026</div>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-around",alignItems:"center"}}>
+                {[{t:sim.final.a,s:sim.final.sa},{t:sim.final.b,s:sim.final.sb}].map((side,i)=>{
+                  const isW=sim.final.w===side.t;
+                  return(
+                    <div key={i} style={{textAlign:"center",flex:1}}>
+                      <div style={{fontSize:48}}>{fl(side.t)}</div>
+                      <div style={{fontSize:9,color:C.muted}}>FIFA #{FIFA_RANK[side.t]||"?"}</div>
+                      <div style={{fontSize:13,fontWeight:"700",color:isW?C.gold:C.muted,marginTop:2}}>{side.t}</div>
+                      <div style={{fontSize:28,fontWeight:"900",color:isW?C.gold:"#ccc",marginTop:4}}>{side.s}</div>
+                      {isW&&<div style={{fontSize:9,color:C.gold,marginTop:3,letterSpacing:1}}>🏆 CHAMPION</div>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{marginTop:14,textAlign:"center",padding:"8px",background:"rgba(240,192,64,0.1)",borderRadius:10,border:`1px solid ${C.goldDim}`}}>
+                <div style={{fontSize:26}}>{fl(sim.final.w)}</div>
+                <div style={{fontSize:15,fontWeight:"900",color:C.gold}}>{sim.final.w}</div>
+                <div style={{fontSize:8.5,color:C.muted,letterSpacing:2}}>FIFA WORLD CUP 2026™ CHAMPION</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==="circled"&&(
+          <div>
+            <div style={{fontSize:8.5,color:C.muted,textAlign:"center",marginBottom:12,letterSpacing:1}}>YOUR 7 PURPLE-CIRCLED GAMES FROM THE SCHEDULE</div>
+            {circledList.map(({label,m},i)=>{
+              const isFinal=m?.id==="M104";
+              return(
+                <div key={i} style={{background:isFinal?"linear-gradient(135deg,#130f00,#0a1400)":"linear-gradient(135deg,#160005,#080e1a)",
+                  border:`2px solid ${isFinal?C.gold:"#8b1a2a"}`,borderRadius:12,padding:"11px 13px",marginBottom:9,
+                  boxShadow:isFinal?`0 0 20px ${C.gold}44`:"0 0 8px #8b1a2a44"}}>
+                  <div style={{fontSize:8.5,color:isFinal?C.gold:"#e05070",fontWeight:"700",letterSpacing:2,marginBottom:7}}>{isFinal?"🏆":"🟣"} {label}</div>
+                  {[{t:m?.a,s:m?.sa,w:m?.w===m?.a},{t:m?.b,s:m?.sb,w:m?.w===m?.b}].map((row,j)=>(
+                    <div key={j} style={{display:"flex",alignItems:"center",gap:7,marginBottom:j===0?5:0}}>
+                      <span style={{fontSize:22}}>{fl(row.t)}</span>
+                      <span style={{fontSize:8.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+                      <span style={{fontSize:13,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t||"TBD"}</span>
+                      <b style={{fontSize:18,color:row.w?C.gold:"#888"}}>{row.s??"-"}</b>
+                    </div>
+                  ))}
+                  <div style={{marginTop:7,padding:"4px 9px",background:isFinal?"rgba(240,192,64,0.1)":"rgba(33,145,80,0.08)",borderRadius:7,fontSize:10,color:isFinal?C.gold:C.green,fontWeight:"700"}}>
+                    {isFinal?"🏆":"✓"} Winner: {fl(m?.w)} {m?.w}
+                  </div>
+                  <div style={{marginTop:3,fontSize:8,color:C.muted}}>Match {m?.id} · {m?.venue}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+      </div>
+
+      <div style={{marginTop:36,padding:"10px 14px",borderTop:`1px solid #131e2e`,textAlign:"center"}}>
+        <span style={{fontSize:9,color:"#2a3a52",letterSpacing:2}}>Bernardo's Simulator · FIFA World Cup 2026™</span>
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
