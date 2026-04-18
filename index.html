@@ -307,56 +307,62 @@ function HalfBracket({ rounds, direction, circled }) {
   const nCols = rounds.length;
   const W = nCols * (CW + COL) - COL;
 
-  // SVG connector lines
   const lines = [];
   for (let r = 0; r < nCols-1; r++) {
-    const nDst = rounds[r+1].length;
+    // For LTR: rounds[r] feeds into rounds[r+1], bigger round on left
+    // For RTL: rounds[r+1] feeds into rounds[r], bigger round on right
+    const bigRound = ltr ? r : r+1;      // the round with more matches (R32 side)
+    const smallRound = ltr ? r+1 : r;    // the round with fewer matches (SF side)
+    const nDst = rounds[smallRound].length;
+
     for (let d = 0; d < nDst; d++) {
       const s1 = d*2, s2 = d*2+1;
-      const y1 = slotY(r,s1), y2 = slotY(r,s2), yD = slotY(r+1,d);
+      const y1 = slotY(bigRound, s1);
+      const y2 = slotY(bigRound, s2);
+      const yD = slotY(smallRound, d);
       const yM = (y1+y2)/2;
-      const colR = ltr ? r : (nCols-1-r);
-      const colD = ltr ? r+1 : (nCols-2-r);
-      const xSrc = ltr ? colR*(CW+COL)+CW : colR*(CW+COL);
-      const xDst = ltr ? colD*(CW+COL) : colD*(CW+COL)+CW;
-      const xM   = ltr ? xSrc+COL/2 : xSrc-COL/2;
+
+      // Visual column positions
+      // LTR: col increases left to right (R32 col 0, R16 col 1, QF col 2, SF col 3)
+      // RTL: col increases left to right (SF col 0, QF col 1, R16 col 2, R32 col 3)
+      const bigCol  = ltr ? r : r+1;
+      const smallCol = ltr ? r+1 : r;
+
+      const xBig   = ltr ? bigCol*(CW+COL)+CW : bigCol*(CW+COL);   // right edge LTR, left edge RTL
+      const xSmall = ltr ? smallCol*(CW+COL)  : smallCol*(CW+COL)+CW; // left edge LTR, right edge RTL
+      const xM     = (xBig + xSmall) / 2;
+
       lines.push(
         <g key={`${r}-${d}`}>
-          <line x1={xSrc} y1={y1} x2={xM} y2={y1} stroke="#243447" strokeWidth="1.5"/>
-          <line x1={xSrc} y1={y2} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xBig} y1={y1} x2={xM} y2={y1} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xBig} y1={y2} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
           <line x1={xM}   y1={y1} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
-          <line x1={xM}   y1={yM} x2={xDst} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
-          {yM!==yD && <line x1={xDst} y1={yM} x2={xDst} y2={yD} stroke={C.accent} strokeWidth="1.5"/>}
+          <line x1={xM}   y1={yM} x2={xSmall} y2={yM} stroke="#3478d4" strokeWidth="1.5"/>
+          {yM!==yD && <line x1={xSmall} y1={yM} x2={xSmall} y2={yD} stroke="#3478d4" strokeWidth="1.5"/>}
         </g>
       );
     }
   }
 
-  const ROUND_LABELS = ltr
-    ? ["ROUND OF 32","ROUND OF 16","QUARTER-FINALS","SEMI-FINALS"]
-    : ["SEMI-FINALS","QUARTER-FINALS","ROUND OF 16","ROUND OF 32"];
+  const LTR_LABELS = ["R32","R16","QF","SF"];
+  const RTL_LABELS = ["SF","QF","R16","R32"];
+  const LBLS = ltr ? LTR_LABELS : RTL_LABELS;
 
   return (
     <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
       <svg style={{position:"absolute",top:0,left:0,width:W,height:BH,pointerEvents:"none"}}>{lines}</svg>
-      {/* Headers */}
-      {rounds.map((_,r) => {
-        const col = ltr ? r : nCols-1-r;
-        return (
-          <div key={r} style={{position:"absolute",top:0,left:col*(CW+COL),width:CW,
-            textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1.5,
-            borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>
-            {ROUND_LABELS[r]}
-          </div>
-        );
-      })}
-      {/* Cards */}
+      {rounds.map((_,r) => (
+        <div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,
+          textAlign:"center",fontSize:7,color:"#f0c040",fontWeight:"700",letterSpacing:1,
+          borderBottom:"1px solid #6b5518",paddingBottom:2}}>
+          {LBLS[r]}
+        </div>
+      ))}
       {rounds.map((ms,r) => ms.map((m,s) => {
-        const col = ltr ? r : nCols-1-r;
-        const cy = slotY(r,s);
+        const cy = ltr ? slotY(r,s) : slotY(r,s);
         return (
-          <div key={m?.id||`${r}-${s}`} style={{position:"absolute",top:cy-CH/2,left:col*(CW+COL)}}>
-            <BCard m={m} circled={circled?.has(m?.id)}/>
+          <div key={m?.id||`${r}-${s}`} style={{position:"absolute",top:cy-CH/2,left:r*(CW+COL)}}>
+            <BCard m={m} circled={circled?.has ? circled.has(m?.id) : !!(circled&&m&&circled[m?.id])}/>
           </div>
         );
       }))}
@@ -364,7 +370,6 @@ function HalfBracket({ rounds, direction, circled }) {
   );
 }
 
-// ─── FINAL CARD ───────────────────────────────────────────────────────────────
 function FinalCard({ final, circled }) {
   const aw=final.w===final.a, bw=final.w===final.b;
   return (
