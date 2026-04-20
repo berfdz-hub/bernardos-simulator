@@ -424,57 +424,76 @@ function FinalCard({ final, circled }) {
 
 // ─── VISUAL BRACKET ───────────────────────────────────────────────────────────
 function VisualBracket({ sim }) {
-  const L_R32 = ["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>sim.r32.find(m=>m.id===id));
-  const L_R16 = ["M89","M90","M91","M92"].map(id=>sim.r16.find(m=>m.id===id));
-  const L_QF  = ["M97","M98"].map(id=>sim.qf.find(m=>m.id===id));
-  const L_SF  = [sim.sf[0]];
+  const [zoom, setZoom] = React.useState(1);
 
-  const R_R32 = ["M81","M82","M83","M84","M85","M86","M87","M88"].map(id=>sim.r32.find(m=>m.id===id));
-  const R_R16 = ["M93","M94","M95","M96"].map(id=>sim.r16.find(m=>m.id===id));
-  const R_QF  = ["M99","M100"].map(id=>sim.qf.find(m=>m.id===id));
-  const R_SF  = [sim.sf[1]];
+  const find=(arr,id)=>arr.find(m=>m.id===id);
+  const L_R32=["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>find(sim.r32,id));
+  const L_R16=["M89","M90","M91","M92"].map(id=>find(sim.r16,id));
+  const L_QF =["M97","M98"].map(id=>find(sim.qf,id));
+  const R_R32=["M81","M82","M83","M84","M85","M86","M87","M88"].map(id=>find(sim.r32,id));
+  const R_R16=["M93","M94","M95","M96"].map(id=>find(sim.r16,id));
+  const R_QF =["M99","M100"].map(id=>find(sim.qf,id));
+  const FW=190+COL*2, sfY=slotY(3,0);
 
-  // SF → Final connectors
-  const finalSlotW = 196 + COL*2;
-  const sfY = slotY(3,0); // SF is at round index 3, slot 0
-  const finalY = BH/2;
+  const ZOOMS = [
+    {label:"100%", val:1},
+    {label:"75%",  val:0.75},
+    {label:"50%",  val:0.5},
+    {label:"33%",  val:0.33},
+  ];
 
   return (
-    <div style={{overflowX:"auto",paddingBottom:16}}>
-      <div style={{fontSize:8.5,color:C.muted,marginBottom:8,textAlign:"center",letterSpacing:1}}>
-        Left bracket flows → . Final in centre . ← Right bracket flows in mirror . Scroll horizontally
+    <div style={{paddingBottom:16}}>
+
+      {/* Zoom controls */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:9,color:C.muted,letterSpacing:1}}>ZOOM:</span>
+        {ZOOMS.map(z => (
+          <button key={z.val} onClick={()=>setZoom(z.val)} style={{
+            padding:"3px 10px",borderRadius:6,fontSize:10,
+            background:zoom===z.val?C.accent+"33":"transparent",
+            color:zoom===z.val?C.accent:C.muted,
+            border:`1px solid ${zoom===z.val?C.accent:C.border}`,
+            fontWeight:zoom===z.val?"700":"400"
+          }}>{z.label}</button>
+        ))}
+        <span style={{fontSize:8,color:C.muted,marginLeft:6}}>
+          {zoom < 0.6 ? "Tip: rotate phone to landscape for best view" : "Scroll horizontally to see full bracket"}
+        </span>
       </div>
-      <div style={{display:"flex",alignItems:"flex-start",gap:0}}>
 
-        {/* LEFT HALF: R32→R16→QF→SF */}
-        <HalfBracket rounds={[L_R32,L_R16,L_QF,L_SF]} direction="ltr" circled={sim.CIRCLED}/>
-
-        {/* CENTRE: SF connectors + Final card */}
-        <div style={{width:finalSlotW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <svg style={{position:"absolute",top:0,left:0,width:finalSlotW,height:BH,pointerEvents:"none"}}>
-            {/* Left SF line out → centre → down/up → final */}
-            <line x1={0} y1={sfY} x2={COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-            <line x1={COL} y1={sfY} x2={COL} y2={finalY} stroke={C.accent} strokeWidth="1.5"/>
-            <line x1={COL} y1={finalY} x2={finalSlotW/2-98} y2={finalY} stroke={C.accent} strokeWidth="1.5"/>
-            {/* Right SF line out → centre → down/up → final */}
-            <line x1={finalSlotW} y1={sfY} x2={finalSlotW-COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-            <line x1={finalSlotW-COL} y1={sfY} x2={finalSlotW-COL} y2={finalY} stroke={C.accent} strokeWidth="1.5"/>
-            <line x1={finalSlotW-COL} y1={finalY} x2={finalSlotW/2+98} y2={finalY} stroke={C.accent} strokeWidth="1.5"/>
-          </svg>
-          <FinalCard final={sim.final} circled={sim.CIRCLED}/>
+      {/* Bracket with zoom */}
+      <div style={{overflowX:"auto",overflowY:"hidden"}}>
+        <div style={{
+          transform:`scale(${zoom})`,
+          transformOrigin:"top left",
+          width: zoom < 1 ? `${100/zoom}%` : "auto",
+          height: zoom < 1 ? BH*zoom+20 : "auto",
+          paddingBottom:12
+        }}>
+          <div style={{display:"flex",alignItems:"flex-start"}}>
+            <HalfBracket rounds={[L_R32,L_R16,L_QF,[sim.sf[0]]]} direction="ltr" circled={sim.CIRCLED}/>
+            <div style={{width:FW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <svg style={{position:"absolute",top:0,left:0,width:FW,height:BH,pointerEvents:"none"}}>
+                <line x1={0}      y1={sfY}  x2={COL}       y2={sfY}  stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={COL}    y1={sfY}  x2={COL}       y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={COL}    y1={BH/2} x2={FW/2-95}   y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={FW}     y1={sfY}  x2={FW-COL}    y2={sfY}  stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={FW-COL} y1={sfY}  x2={FW-COL}    y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={FW-COL} y1={BH/2} x2={FW/2+95}   y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+              </svg>
+              <FinalCard final={sim.final} circled={sim.CIRCLED}/>
+            </div>
+            <HalfBracket rounds={[[sim.sf[1]],R_QF,R_R16,R_R32]} direction="rtl" circled={sim.CIRCLED}/>
+          </div>
         </div>
-
-        {/* RIGHT HALF: SF→QF→R16→R32 (RTL) */}
-        <HalfBracket rounds={[R_SF,R_QF,R_R16,R_R32]} direction="rtl" circled={sim.CIRCLED}/>
-
       </div>
 
       {/* Legend */}
-      <div style={{display:"flex",gap:14,justifyContent:"center",marginTop:10,flexWrap:"wrap"}}>
-        {[{c:"#243447",l:"Match feeders"},{c:C.accent,l:"Winner advances"},{c:C.gold,l:"🟣 Your circled game"}].map((item,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:5,fontSize:8.5,color:C.muted}}>
-            <div style={{width:18,height:2,background:item.c,borderRadius:1}}/>
-            {item.l}
+      <div style={{display:"flex",gap:14,justifyContent:"center",marginTop:8,flexWrap:"wrap"}}>
+        {[{c:"#243447",l:"Feeders"},{c:C.accent,l:"Winner advances"},{c:C.gold,l:"* Your ticket"}].map((x,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:5,fontSize:8,color:C.muted}}>
+            <div style={{width:16,height:2,background:x.c,borderRadius:1}}/>{x.l}
           </div>
         ))}
       </div>
@@ -482,7 +501,6 @@ function VisualBracket({ sim }) {
   );
 }
 
-// ─── GROUP TABLE ─────────────────────────────────────────────────────────────
 function GroupTable({ grp, data }) {
   const teams = [data.p1,data.p2,data.p3,data.p4];
   return (
