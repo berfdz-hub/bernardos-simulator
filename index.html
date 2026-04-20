@@ -303,50 +303,74 @@ function BCard({ m, circled }) {
 // rounds: array of 4 arrays [R32(8), R16(4), QF(2), SF(1)]
 // direction: "ltr" (R32 on left) or "rtl" (R32 on right, for right side of bracket)
 function HalfBracket({ rounds, direction, circled }) {
+  // For LTR: rounds = [R32(8), R16(4), QF(2), SF(1)]
+  //   col 0 = R32, col 1 = R16, col 2 = QF, col 3 = SF
+  //   slotY(roundIdx, slot) uses roundIdx for spacing — col r has spacing of round r
+  //
+  // For RTL: rounds = [SF(1), QF(2), R16(4), R32(8)]
+  //   col 0 = SF, col 1 = QF, col 2 = R16, col 3 = R32
+  //   BUT slotY must use the REAL round size for spacing:
+  //   col 0 (SF) needs spacing of round 3, col 1 (QF) needs round 2, etc.
+  //   So for RTL: slotY(nC-1-r, s) gives correct spacing
+
   const ltr = direction === "ltr";
-  const nCols = rounds.length;
-  const W = nCols * (CW + COL) - COL;
+  const nC  = rounds.length; // 4
+  const W   = nC * (CW + COL) - COL;
+
+  // Helper: get vertical center of card at column r, slot s
+  function cy(r, s) {
+    const realRound = ltr ? r : (nC - 1 - r);
+    return slotY(realRound, s);
+  }
 
   const lines = [];
-  for (let r = 0; r < nCols-1; r++) {
-    // For LTR: rounds[r] feeds into rounds[r+1], bigger round on left
-    // For RTL: rounds[r+1] feeds into rounds[r], bigger round on right
-    const bigRound = ltr ? r : r+1;      // the round with more matches (R32 side)
-    const smallRound = ltr ? r+1 : r;    // the round with fewer matches (SF side)
-    const nDst = rounds[smallRound].length;
 
-    for (let d = 0; d < nDst; d++) {
-      const s1 = d*2, s2 = d*2+1;
-      const y1 = slotY(bigRound, s1);
-      const y2 = slotY(bigRound, s2);
-      const yD = slotY(smallRound, d);
-      const yM = (y1+y2)/2;
-
-      // Visual column positions
-      // LTR: col increases left to right (R32 col 0, R16 col 1, QF col 2, SF col 3)
-      // RTL: col increases left to right (SF col 0, QF col 1, R16 col 2, R32 col 3)
-      const bigCol  = ltr ? r : r+1;
-      const smallCol = ltr ? r+1 : r;
-
-      const xBig   = ltr ? bigCol*(CW+COL)+CW : bigCol*(CW+COL);   // right edge LTR, left edge RTL
-      const xSmall = ltr ? smallCol*(CW+COL)  : smallCol*(CW+COL)+CW; // left edge LTR, right edge RTL
-      const xM     = (xBig + xSmall) / 2;
-
-      lines.push(
-        <g key={`${r}-${d}`}>
-          <line x1={xBig} y1={y1} x2={xM} y2={y1} stroke="#243447" strokeWidth="1.5"/>
-          <line x1={xBig} y1={y2} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
-          <line x1={xM}   y1={y1} x2={xM} y2={y2} stroke="#243447" strokeWidth="1.5"/>
-          <line x1={xM}   y1={yM} x2={xSmall} y2={yM} stroke="#3478d4" strokeWidth="1.5"/>
-          {yM!==yD && <line x1={xSmall} y1={yM} x2={xSmall} y2={yD} stroke="#3478d4" strokeWidth="1.5"/>}
-        </g>
-      );
+  if (ltr) {
+    // LTR: col r and col r+1, two cards in col r feed into one in col r+1
+    for (let r = 0; r < nC - 1; r++) {
+      const nParent = rounds[r+1].length;
+      for (let d = 0; d < nParent; d++) {
+        const y1 = cy(r,   d*2);
+        const y2 = cy(r,   d*2+1);
+        const yP = cy(r+1, d);
+        const yM = (y1 + y2) / 2;
+        const xSrc = r*(CW+COL)+CW;
+        const xDst = (r+1)*(CW+COL);
+        const xMid = xSrc + COL/2;
+        lines.push(<g key={r+"-"+d}>
+          <line x1={xSrc} y1={y1} x2={xMid} y2={y1} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xSrc} y1={y2} x2={xMid} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xMid} y1={y1} x2={xMid} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xMid} y1={yM} x2={xDst} y2={yM} stroke="#3478d4" strokeWidth="1.5"/>
+          {yM!==yP && <line x1={xDst} y1={yM} x2={xDst} y2={yP} stroke="#3478d4" strokeWidth="1.5"/>}
+        </g>);
+      }
+    }
+  } else {
+    // RTL: col r+1 has more matches than col r
+    // Two cards in col r+1 feed into one card in col r
+    for (let r = 0; r < nC - 1; r++) {
+      const nParent = rounds[r].length;
+      for (let d = 0; d < nParent; d++) {
+        const y1 = cy(r+1, d*2);
+        const y2 = cy(r+1, d*2+1);
+        const yP = cy(r,   d);
+        const yM = (y1 + y2) / 2;
+        const xSrc = (r+1)*(CW+COL);        // left edge of col r+1 (bigger round)
+        const xDst = r*(CW+COL)+CW;          // right edge of col r  (smaller round)
+        const xMid = xSrc - COL/2;
+        lines.push(<g key={r+"-"+d}>
+          <line x1={xSrc} y1={y1} x2={xMid} y2={y1} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xSrc} y1={y2} x2={xMid} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xMid} y1={y1} x2={xMid} y2={y2} stroke="#243447" strokeWidth="1.5"/>
+          <line x1={xMid} y1={yM} x2={xDst} y2={yM} stroke="#3478d4" strokeWidth="1.5"/>
+          {yM!==yP && <line x1={xDst} y1={yM} x2={xDst} y2={yP} stroke="#3478d4" strokeWidth="1.5"/>}
+        </g>);
+      }
     }
   }
 
-  const LTR_LABELS = ["R32","R16","QF","SF"];
-  const RTL_LABELS = ["SF","QF","R16","R32"];
-  const LBLS = ltr ? LTR_LABELS : RTL_LABELS;
+  const LBLS = ltr ? ["R32","R16","QF","SF"] : ["SF","QF","R16","R32"];
 
   return (
     <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
@@ -358,14 +382,11 @@ function HalfBracket({ rounds, direction, circled }) {
           {LBLS[r]}
         </div>
       ))}
-      {rounds.map((ms,r) => ms.map((m,s) => {
-        const cy = ltr ? slotY(r,s) : slotY(r,s);
-        return (
-          <div key={m?.id||`${r}-${s}`} style={{position:"absolute",top:cy-CH/2,left:r*(CW+COL)}}>
-            <BCard m={m} circled={circled?.has ? circled.has(m?.id) : !!(circled&&m&&circled[m?.id])}/>
-          </div>
-        );
-      }))}
+      {rounds.map((ms,r) => ms.map((m,s) => (
+        <div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}>
+          <BCard m={m} circled={circled?.has ? circled.has(m?.id) : !!(circled&&m&&circled[m?.id])}/>
+        </div>
+      )))}
     </div>
   );
 }
