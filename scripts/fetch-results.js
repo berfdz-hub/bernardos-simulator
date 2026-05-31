@@ -1,0 +1,45 @@
+name: Fetch Football Results
+
+on:
+  schedule:
+    # Every 5 minutes during World Cup (Jun 11 - Jul 19 2026)
+    - cron: '*/5 * * * *'
+    # Every 6 hours outside tournament (for friendly results)
+    # Comment the above and uncomment below when WC is not active
+    # - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  fetch-results:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/package.json
+
+      - name: Install dependencies
+        run: |
+          cd scripts
+          npm install
+
+      - name: Fetch and sync results
+        env:
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd scripts
+          node fetch-results.js
+
+      - name: Log result
+        if: always()
+        run: echo "Fetch completed at $(date -u)"
