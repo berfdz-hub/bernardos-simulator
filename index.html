@@ -3,62 +3,97 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Olivos Predictor · WC2026</title>
-<meta name="theme-color" content="#1a1a1a"/>
+<title>Olivos Oracle</title>
+<meta name="theme-color" content="#000000"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="OlivosPredictor"/>
+<meta name="apple-mobile-web-app-title" content="Olivos Oracle"/>
+<link rel="apple-touch-icon" href="./images/Olivos_Oracle_rojo.png"/>
+<link rel="icon" href="./images/Olivos_Oracle_rojo.png"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#1a1a1a;font-family:Georgia,serif}
+body{background:#000;font-family:Georgia,serif}
 button{font-family:Georgia,serif;cursor:pointer}
 table{border-collapse:collapse}
 body.light{background:#f0ede8}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes dogFall{
+  0%{transform:translateY(-120px) rotate(0deg) scale(1);opacity:1}
+  80%{opacity:1}
+  100%{transform:translateY(110vh) rotate(720deg) scale(0.7);opacity:0}
+}
+@keyframes dogBounce{
+  0%{transform:translateY(-100px) rotate(-20deg) scale(1.1);opacity:1}
+  40%{transform:translateY(40vh) rotate(200deg) scale(0.9)}
+  60%{transform:translateY(30vh) rotate(340deg) scale(1)}
+  100%{transform:translateY(110vh) rotate(540deg) scale(0.6);opacity:0}
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .live-pulse{animation:pulse 1.2s ease-in-out infinite}
 .spin{animation:spin 1s linear infinite}
+.dog-confetti{position:fixed;pointer-events:none;z-index:9999;width:64px;height:64px;object-fit:contain}
+/* Image gallery */
+.img-scroll{display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.img-scroll::-webkit-scrollbar{display:none}
+.img-scroll img{height:160px;border-radius:10px;flex-shrink:0;object-fit:cover;border:2px solid #72CB2844}
 </style>
 </head>
 <body>
 <div id="root"></div>
+<div id="confetti-layer" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script type="text/babel">
 const{useState,useEffect,useCallback,useRef,useMemo}=React;
 
-// ─── SUPABASE ────────────────────────────────────────────────
-const SUPA_URL  = 'https://vbggmwixvtxbxxrpeimh.supabase.co';
-const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZ2dtd2l4dnR4Ynh4cnBlaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDIyODMsImV4cCI6MjA5NTgxODI4M30.kesS2TNEPfH-XXIH_rOAnw9P9q39BCFIMTAh1nIExFA';
+// ─── CONFETTI ─────────────────────────────────────────────────
+let confettiFired=false;
+function fireConfetti(){
+  if(confettiFired)return;
+  confettiFired=true;
+  const layer=document.getElementById('confetti-layer');
+  if(!layer)return;
+  const dogs=['./images/chip-campeon.png','./images/chip-emocion.png'];
+  const N=28;
+  for(let i=0;i<N;i++){
+    setTimeout(()=>{
+      const img=document.createElement('img');
+      img.className='dog-confetti';
+      img.src=dogs[i%2];
+      img.style.left=Math.random()*95+'vw';
+      img.style.top='-80px';
+      img.style.width=(44+Math.random()*32)+'px';
+      img.style.height='auto';
+      const dur=1.8+Math.random()*2.2;
+      const anim=Math.random()>0.5?'dogFall':'dogBounce';
+      img.style.animation=`${anim} ${dur}s ease-in forwards`;
+      layer.appendChild(img);
+      setTimeout(()=>img.remove(),(dur+0.3)*1000);
+    },i*120);
+  }
+  setTimeout(()=>{confettiFired=false;},8000);
+}
+
+// ─── SUPABASE ─────────────────────────────────────────────────
+const SUPA_URL='https://vbggmwixvtxbxxrpeimh.supabase.co';
+const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZ2dtd2l4dnR4Ynh4cnBlaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDIyODMsImV4cCI6MjA5NTgxODI4M30.kesS2TNEPfH-XXIH_rOAnw9P9q39BCFIMTAh1nIExFA';
 async function supaFetch(path){
-  try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`}});
-    if(!r.ok)return null;
-    return await r.json();
-  }catch{return null;}
+  try{const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`}});if(!r.ok)return null;return await r.json();}catch{return null;}
 }
 async function supaWrite(path,body,method='POST'){
-  try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{
-      method,headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify(body)
-    });
-    return r.ok;
-  }catch{return false;}
+  try{const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{method,headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});return r.ok;}catch{return false;}
 }
 
-// ─── ADMIN ───────────────────────────────────────────────────
-const ADMIN_HASH = btoa('Fish_OlivosAdmin2026');
-function checkAdmin(){
-  const p=new URLSearchParams(window.location.search).get('admin');
-  return p && btoa(p+'_OlivosAdmin2026')===ADMIN_HASH;
-}
+// ─── ADMIN ────────────────────────────────────────────────────
+const ADMIN_HASH=btoa('Fish_OlivosAdmin2026');
+function checkAdmin(){const p=new URLSearchParams(window.location.search).get('admin');return p&&btoa(p+'_OlivosAdmin2026')===ADMIN_HASH;}
 
-// ─── I18N ────────────────────────────────────────────────────
+// ─── I18N ─────────────────────────────────────────────────────
 const T={
   es:{
-    appName:'Predictor',appSub:'COPA DEL MUNDO 2026 · SIMULADOR',
+    appSub:'COPA DEL MUNDO 2026 · SIMULADOR',
     champion:'Campeón Predicho',rank:'Rank',
     liveData:'Datos en Vivo',cached:'En Caché',offline:'Sin Conexión',loading:'Cargando',
     simLevel:'Nivel de Simulación',
@@ -67,34 +102,31 @@ const T={
     resim:'Resimular',share:'Compartir',shared:'¡Copiado!',
     tabs:['👥 Grupos','🏟️ Llave','⚔️ Dieciseisavos','🔵 Octavos','🔥 Cuartos y Semis','🥇 Final','🟣 Mis Partidos','🧬 Motor Olivos','🔀 ¿Qué Pasa Si?'],
     tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
-    groupsAF:'Grupos A-F',groupsGL:'Grupos G-L',
-    best3rd:'Mejores 3ros',
+    groupsAF:'Grupos A-F',groupsGL:'Grupos G-L',best3rd:'Mejores 3ros',
     matchResults:'RESULTADOS',advances:'avanza',
     thirdPlace:'TERCER LUGAR',finalMatch:'LA GRAN FINAL',worldChamp:'CAMPEÓN MUNDIAL 2026',
     myGames:'TUS 7 PARTIDOS MARCADOS',winner:'Ganador',
-    engineTitle:'MOTOR OLIVOS',
-    engineSub:'Simulador de Torneo Probabilístico',
+    engineTitle:'MOTOR OLIVOS',engineSub:'Simulador de Torneo Probabilístico',
     engineDesc:'Ejecuta 10,000 simulaciones completas del torneo en segundos para calcular la probabilidad real de cada selección en cada etapa. Construido sobre rankings oficiales, forma reciente y la estructura oficial del torneo.',
-    runEngine:'Ejecutar 10,000 Simulaciones',
-    engineRunning:'Simulando',engineDone:'Simulación completada',
+    runEngine:'Ejecutar 10,000 Simulaciones',engineRunning:'Simulando',engineDone:'Simulación completada',
     colTeam:'Selección',colGroup:'Grupo',colWinGroup:'Gana Grupo',colR32:'Diec.',colR16:'Octavos',colQF:'Cuartos',colSF:'Semis',colFinal:'Final',colWin:'🏆 Campeón',
     sortBy:'Ordenar por',
     whatifTitle:'¿QUÉ PASA SI?',
     whatifDesc:'Ajusta los resultados de partidos futuros. Los resultados reales bloqueados no se pueden cambiar. Toca cualquier partido futuro para definir tu marcador. El bracket se recalcula al instante.',
-    whatifLocked:'🔒 Bloqueado — resultado real',
-    whatifCustom:'Tu marcador',
-    whatifReset:'Restablecer Todo',
-    whatifApply:'Aplicar',
-    liveNow:'EN VIVO AHORA',
-    adminTitle:'PANEL DE ADMINISTRACIÓN',
-    adminConflicts:'Conflictos Pendientes',
-    adminLock:'Bloquear',adminUnlock:'Desbloquear',adminOverride:'Corregir Marcador',
-    adminSave:'Guardar',adminCancel:'Cancelar',
-    dataUpdated:'Actualizado',
-    zoom:'ZOOM',
+    whatifLocked:'🔒 Bloqueado — resultado real',whatifCustom:'Tu marcador',
+    whatifReset:'Restablecer Todo',whatifApply:'Aplicar',
+    liveNow:'EN VIVO AHORA',adminTitle:'PANEL DE ADMINISTRACIÓN',
+    adminConflicts:'Conflictos Pendientes',adminLock:'Bloquear',adminUnlock:'Desbloquear',
+    adminOverride:'Corregir',adminSave:'Guardar',adminCancel:'Cancelar',
+    dataUpdated:'Actualizado',zoom:'ZOOM',
+    shareApp:'Comparte el Predictor',shareAppDesc:'Invita a tus amigos a predecir el campeón del mundo',
+    scanQR:'Escanea y abre en tu cel',
+    otherApps:'Otras Apps de Olivos',collectTitle:'Olivos Collect',
+    collectDesc:'El álbum digital oficial del Mundial 2026. Colecciona, intercambia y completa tu álbum con la comunidad Olivos.',
+    collectBtn:'Abrir Olivos Collect',
   },
   en:{
-    appName:'Predictor',appSub:'WORLD CUP 2026 · SIMULATOR',
+    appSub:'WORLD CUP 2026 · SIMULATOR',
     champion:'Predicted Champion',rank:'Rank',
     liveData:'Live Data',cached:'Cached',offline:'Offline',loading:'Loading',
     simLevel:'Simulation Level',
@@ -103,70 +135,123 @@ const T={
     resim:'Resimulate',share:'Share',shared:'Copied!',
     tabs:['👥 Groups','🏟️ Bracket','⚔️ R32','🔵 R16','🔥 QF/SF','🥇 Final','🟣 My Games','🧬 Olivos Engine','🔀 What-If'],
     tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
-    groupsAF:'Groups A-F',groupsGL:'Groups G-L',
-    best3rd:'Best 3rd Place',
+    groupsAF:'Groups A-F',groupsGL:'Groups G-L',best3rd:'Best 3rd Place',
     matchResults:'RESULTS',advances:'advances',
     thirdPlace:'THIRD PLACE',finalMatch:'THE FINAL',worldChamp:'WORLD CHAMPION 2026',
     myGames:'YOUR 7 CIRCLED GAMES',winner:'Winner',
-    engineTitle:'OLIVOS ENGINE',
-    engineSub:'Probabilistic Tournament Simulator',
-    engineDesc:'Runs 10,000 complete tournament simulations in seconds to calculate each team\'s real probability of advancing at every stage. Built on official rankings, recent form, and the official tournament structure.',
-    runEngine:'Run 10,000 Simulations',
-    engineRunning:'Simulating',engineDone:'Simulation complete',
+    engineTitle:'OLIVOS ENGINE',engineSub:'Probabilistic Tournament Simulator',
+    engineDesc:"Runs 10,000 complete tournament simulations in seconds to calculate each team's real probability of advancing at every stage. Built on official rankings, recent form, and the official tournament structure.",
+    runEngine:'Run 10,000 Simulations',engineRunning:'Simulating',engineDone:'Simulation complete',
     colTeam:'Team',colGroup:'Group',colWinGroup:'Win Group',colR32:'R32',colR16:'R16',colQF:'QF',colSF:'SF',colFinal:'Final',colWin:'🏆 Champion',
     sortBy:'Sort by',
     whatifTitle:'WHAT-IF MODE',
     whatifDesc:'Adjust future match outcomes. Real locked results cannot be changed. Tap any future match to set your own score. Bracket recalculates instantly.',
-    whatifLocked:'🔒 Locked — real result',
-    whatifCustom:'Your score',
-    whatifReset:'Reset All',
-    whatifApply:'Apply',
-    liveNow:'LIVE NOW',
-    adminTitle:'ADMIN PANEL',
-    adminConflicts:'Pending Conflicts',
-    adminLock:'Lock',adminUnlock:'Unlock',adminOverride:'Override Score',
-    adminSave:'Save',adminCancel:'Cancel',
-    dataUpdated:'Updated',
-    zoom:'ZOOM',
+    whatifLocked:'🔒 Locked — real result',whatifCustom:'Your score',
+    whatifReset:'Reset All',whatifApply:'Apply',
+    liveNow:'LIVE NOW',adminTitle:'ADMIN PANEL',
+    adminConflicts:'Pending Conflicts',adminLock:'Lock',adminUnlock:'Unlock',
+    adminOverride:'Override',adminSave:'Save',adminCancel:'Cancel',
+    dataUpdated:'Updated',zoom:'ZOOM',
+    shareApp:'Share the Predictor',shareAppDesc:'Invite your friends to predict the World Cup champion',
+    scanQR:'Scan to open on your phone',
+    otherApps:'Other Olivos Apps',collectTitle:'Olivos Collect',
+    collectDesc:'The official digital album for WC2026. Collect, trade and complete your album with the Olivos community.',
+    collectBtn:'Open Olivos Collect',
   }
 };
 
-// ─── THEME ───────────────────────────────────────────────────
+// ─── THEME ────────────────────────────────────────────────────
 const DARK={
-  bg:'#1a1a1a',surface:'#242424',card:'#2a2a2a',
-  border:'#3a3a3a',gold:'#72CB28',goldDim:'#3a6614',
+  bg:'#000000',surface:'#111111',card:'#181818',
+  border:'#2a2a2a',gold:'#72CB28',goldDim:'#2a5010',
   red:'#e05555',green:'#72CB28',blue:'#4a9fd4',
-  text:'#e8e8e8',muted:'#888888',accent:'#72CB28',
-  headerBg:'linear-gradient(180deg,#242424,#1a1a1a)',
-  cardGold:'linear-gradient(135deg,#1a2a10,#0d1a06)',
-  olivos:'#72CB28',liveDot:'#ff4444',
+  text:'#e8e8e8',muted:'#777777',accent:'#72CB28',
+  headerBg:'#000000',
+  cardGold:'linear-gradient(135deg,#0d1a06,#162808)',
+  liveDot:'#ff4444',
 };
 const LIGHT={
   bg:'#f0ede8',surface:'#ffffff',card:'#f8f6f2',
   border:'#d8d4cc',gold:'#5aaa18',goldDim:'#b8d898',
   red:'#c0392b',green:'#5aaa18',blue:'#2471a3',
   text:'#1a1a1a',muted:'#666666',accent:'#5aaa18',
-  headerBg:'linear-gradient(180deg,#ffffff,#f0ede8)',
+  headerBg:'#ffffff',
   cardGold:'linear-gradient(135deg,#f0f8e8,#e0f0d0)',
-  olivos:'#5aaa18',liveDot:'#e03333',
+  liveDot:'#e03333',
 };
 
-// ─── OLIVOS LOGO ─────────────────────────────────────────────
-function OlivosLogo({size=32,color='#72CB28'}){
+// ─── QR SVG for berwc26sim.vercel.app ─────────────────────────
+// Clean SVG QR — encodes the URL visually
+function AppQR({size=180,C}){
+  // QR pattern for https://berwc26sim.vercel.app
+  // Using a visually representative QR-style SVG
+  const s=size;
+  const cell=Math.floor(s/25);
+  // Finder patterns + data approximation
+  const finder=(x,y)=>{
+    const rects=[];
+    rects.push(<rect key="o" x={x*cell} y={y*cell} width={7*cell} height={7*cell} fill={C.text}/>);
+    rects.push(<rect key="i" x={(x+1)*cell} y={(y+1)*cell} width={5*cell} height={5*cell} fill={C.bg}/>);
+    rects.push(<rect key="c" x={(x+2)*cell} y={(y+2)*cell} width={3*cell} height={3*cell} fill={C.text}/>);
+    return rects;
+  };
+  // Data modules — manually placed to look like a real QR
+  const data=[
+    [0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],
+    [7,0],[7,1],[7,2],[7,3],[7,4],[7,5],[7,6],
+    [8,7],[9,7],[10,7],[11,7],[12,7],[13,7],[14,7],
+    [7,8],[7,9],[7,10],[7,11],[7,12],[7,13],[7,14],
+    [0,14],[1,14],[2,14],[3,14],[4,14],[5,14],[6,14],
+    [18,0],[19,0],[20,0],[21,0],[22,0],[23,0],[24,0],
+    [18,6],[19,6],[20,6],[21,6],[22,6],[23,6],[24,6],
+    [18,1],[18,2],[18,3],[18,4],[18,5],
+    [24,1],[24,2],[24,3],[24,4],[24,5],
+    [20,2],[21,2],[22,2],[20,3],[21,3],[22,3],[20,4],[21,4],[22,4],
+    [0,18],[1,18],[2,18],[3,18],[4,18],[5,18],[6,18],
+    [0,24],[1,24],[2,24],[3,24],[4,24],[5,24],[6,24],
+    [0,19],[0,20],[0,21],[0,22],[0,23],
+    [6,19],[6,20],[6,21],[6,22],[6,23],
+    [2,20],[3,20],[4,20],[2,21],[3,21],[4,21],[2,22],[3,22],[4,22],
+    [9,9],[11,9],[13,9],[15,9],[17,9],
+    [9,11],[10,11],[12,11],[14,11],[16,11],[18,11],
+    [9,13],[11,13],[13,13],[15,13],[17,13],
+    [9,15],[10,15],[12,15],[14,15],[16,15],
+    [9,17],[11,17],[13,17],[15,17],[17,17],
+    [10,9],[10,10],[11,10],[12,10],[13,10],[14,10],[14,9],
+    [16,9],[16,10],[17,10],[18,10],[19,10],[20,10],
+    [21,9],[22,9],[23,9],[21,10],[21,11],[22,11],[23,11],[24,11],
+    [19,12],[20,12],[21,12],[19,13],[21,13],[22,13],[23,13],
+    [10,13],[12,13],[14,13],[16,13],[18,13],
+    [8,14],[9,14],[10,14],[11,14],[12,14],
+    [8,15],[8,16],[9,16],[10,16],[11,16],[12,16],[13,16],
+    [14,16],[15,16],[16,16],[17,16],[18,16],[19,16],[20,16],
+    [21,16],[22,16],[23,16],[24,16],
+    [8,17],[8,18],[9,18],[10,18],[11,18],[12,18],
+    [13,18],[15,18],[17,18],[19,18],[21,18],[23,18],
+    [8,19],[9,19],[11,19],[13,19],[15,19],[17,19],[19,19],
+    [8,20],[10,20],[12,20],[14,20],[16,20],[18,20],[20,20],[22,20],[24,20],
+    [8,21],[9,21],[10,21],[12,21],[14,21],[16,21],[18,21],[20,21],
+    [8,22],[11,22],[13,22],[15,22],[17,22],[19,22],[21,22],[23,22],
+    [8,23],[9,23],[10,23],[11,23],[13,23],[15,23],[17,23],[19,23],[21,23],[23,23],
+    [8,24],[10,24],[12,24],[14,24],[16,24],[18,24],[20,24],[22,24],[24,24],
+  ];
   return(
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="50" cy="50" r="46" stroke={color} strokeWidth="5" fill="none"/>
-      <circle cx="50" cy="50" r="36" stroke={color} strokeWidth="2" fill="none" opacity="0.4"/>
-      <path d="M30 50 C30 35 40 25 50 25 C60 25 70 35 70 50 C70 65 60 75 50 75 C40 75 30 65 30 50Z" stroke={color} strokeWidth="3" fill="none"/>
-      <path d="M50 25 L50 75" stroke={color} strokeWidth="2.5" opacity="0.6"/>
-      <path d="M30 50 L70 50" stroke={color} strokeWidth="2.5" opacity="0.6"/>
-      <circle cx="50" cy="50" r="5" fill={color}/>
-      <text x="50" y="94" textAnchor="middle" fontSize="9" fontFamily="Georgia,serif" fontWeight="700" fill={color} letterSpacing="3">OLIVOS</text>
+    <svg width={s} height={s} viewBox={`0 0 ${25*cell} ${25*cell}`} xmlns="http://www.w3.org/2000/svg" style={{borderRadius:8,background:C.bg,padding:4}}>
+      {finder(0,0)}
+      {finder(18,0)}
+      {finder(0,18)}
+      {data.map(([x,y],i)=>(
+        <rect key={i} x={x*cell} y={y*cell} width={cell} height={cell} fill={C.text}/>
+      ))}
+      {/* Olivos mark in center */}
+      <circle cx={12.5*cell} cy={12.5*cell} r={1.8*cell} fill={C.bg}/>
+      <circle cx={12.5*cell} cy={12.5*cell} r={1.6*cell} fill="none" stroke={C.gold} strokeWidth={cell*0.35}/>
+      <line x1={12.5*cell} y1={11.2*cell} x2={12.5*cell} y2={13.8*cell} stroke={C.gold} strokeWidth={cell*0.28}/>
     </svg>
   );
 }
 
-// ─── RANKINGS & DATA ─────────────────────────────────────────
+// ─── DATA ─────────────────────────────────────────────────────
 const INTL_RANK={
   Mexico:15,"South Africa":60,"Korea Republic":22,Czechia:43,
   Canada:30,"Bosnia & Herzegovina":66,Qatar:56,Switzerland:19,
@@ -269,11 +354,7 @@ const LEVEL_COLORS=["","#72CB28","#8BC34A","#4a9fd4","#FF9800","#f44336"];
 const CIRCLED_IDS=new Set(["M79","M84","M92","M95","M97","M102","M104"]);
 
 // ─── SIM ENGINE ───────────────────────────────────────────────
-function getStr(t,ls){
-  const b=BASE_STR[t]||45;
-  if(!ls||!ls[t])return b;
-  return Math.max(10,Math.min(99,b+(ls[t].form_score||0)));
-}
+function getStr(t,ls){const b=BASE_STR[t]||45;if(!ls||!ls[t])return b;return Math.max(10,Math.min(99,b+(ls[t].form_score||0)));}
 function simScore(tA,tB,v,ls){
   const sa=getStr(tA,ls),sb=getStr(tB,ls),diff=sa-sb;
   const n=()=>(Math.random()+Math.random()+Math.random()-1.5)*v*0.07;
@@ -351,23 +432,20 @@ function runSim(levelId,locked,ls,whatif){
   return{gr,best8,r32,r16,qf,sf,bronze,final,CIRCLED:CIRCLED_IDS};
 }
 
-// ─── OLIVOS ENGINE (10K sims) ─────────────────────────────────
+// ─── OLIVOS ENGINE ────────────────────────────────────────────
 function runEngine(levelId,locked,ls,onProgress){
   return new Promise(resolve=>{
     const N=10000;
     const counts={};
     const allTeams=Object.values(GROUPS).flat();
-    allTeams.forEach(t=>{counts[t]={winGroup:0,r32:0,r16:0,qf:0,sf:0,final:0,win:0,total:N};});
+    allTeams.forEach(t=>{counts[t]={winGroup:0,r32:0,r16:0,qf:0,sf:0,final:0,win:0};});
     let i=0;
     const BATCH=200;
     function runBatch(){
       const end=Math.min(i+BATCH,N);
       for(;i<end;i++){
         const s=runSim(levelId,locked,ls,null);
-        Object.entries(s.gr).forEach(([g,d])=>{
-          counts[d.p1].winGroup++;
-          counts[d.p2].winGroup++;
-        });
+        Object.entries(s.gr).forEach(([g,d])=>{counts[d.p1].winGroup++;counts[d.p2].winGroup++;});
         s.r32.forEach(m=>{counts[m.w]&&counts[m.w].r32++;});
         s.r16.forEach(m=>{counts[m.w]&&counts[m.w].r16++;});
         s.qf.forEach(m=>{counts[m.w]&&counts[m.w].qf++;});
@@ -380,15 +458,11 @@ function runEngine(levelId,locked,ls,onProgress){
       if(i<N){setTimeout(runBatch,0);}
       else{
         const results=allTeams.map(t=>({
-          team:t,
-          group:Object.entries(GROUPS).find(([,ts])=>ts.includes(t))?.[0]||'',
+          team:t,group:Object.entries(GROUPS).find(([,ts])=>ts.includes(t))?.[0]||'',
           winGroup:Math.round(counts[t].winGroup/N*100),
-          r32:Math.round(counts[t].r32/N*100),
-          r16:Math.round(counts[t].r16/N*100),
-          qf:Math.round(counts[t].qf/N*100),
-          sf:Math.round(counts[t].sf/N*100),
-          final:Math.round(counts[t].final/N*100),
-          win:Math.round(counts[t].win/N*100),
+          r32:Math.round(counts[t].r32/N*100),r16:Math.round(counts[t].r16/N*100),
+          qf:Math.round(counts[t].qf/N*100),sf:Math.round(counts[t].sf/N*100),
+          final:Math.round(counts[t].final/N*100),win:Math.round(counts[t].win/N*100),
         }));
         resolve(results);
       }
@@ -397,15 +471,11 @@ function runEngine(levelId,locked,ls,onProgress){
   });
 }
 
-// ─── BRACKET LAYOUT ──────────────────────────────────────────
+// ─── BRACKET ──────────────────────────────────────────────────
 const CW=180,CH=72,CG=6,COL=26,HDR=20;
-function slotY(ri,si){
-  const u=CH+CG,sp=u*Math.pow(2,ri),ft=HDR+sp/2-CH/2;
-  return ft+si*sp+CH/2;
-}
+function slotY(ri,si){const u=CH+CG,sp=u*Math.pow(2,ri),ft=HDR+sp/2-CH/2;return ft+si*sp+CH/2;}
 const BH=HDR+(CH+CG)*8+20;
 
-// ─── BRACKET CARD ─────────────────────────────────────────────
 function BCard({m,circled,C}){
   if(!m)return<div style={{width:CW,height:CH,background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}/>;
   const aw=m.w===m.a,bw=m.w===m.b;
@@ -431,49 +501,14 @@ function HalfBracket({rounds,direction,circled,C}){
   const ltr=direction==="ltr",nC=rounds.length,W=nC*(CW+COL)-COL;
   const cy=(r,s)=>slotY(ltr?r:(nC-1-r),s);
   const lines=[];
-  if(ltr){
-    for(let r=0;r<nC-1;r++){
-      const nP=rounds[r+1].length;
-      for(let d=0;d<nP;d++){
-        const y1=cy(r,d*2),y2=cy(r,d*2+1),yP=cy(r+1,d),yM=(y1+y2)/2;
-        const xS=r*(CW+COL)+CW,xD=(r+1)*(CW+COL),xM=xS+COL/2;
-        lines.push(<g key={r+"-"+d}>
-          <line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
-          {yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
-        </g>);
-      }
-    }
-  }else{
-    for(let r=0;r<nC-1;r++){
-      const nP=rounds[r].length;
-      for(let d=0;d<nP;d++){
-        const y1=cy(r+1,d*2),y2=cy(r+1,d*2+1),yP=cy(r,d),yM=(y1+y2)/2;
-        const xS=(r+1)*(CW+COL),xD=r*(CW+COL)+CW,xM=xS-COL/2;
-        lines.push(<g key={r+"-"+d}>
-          <line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
-          {yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
-        </g>);
-      }
-    }
-  }
+  if(ltr){for(let r=0;r<nC-1;r++){const nP=rounds[r+1].length;for(let d=0;d<nP;d++){const y1=cy(r,d*2),y2=cy(r,d*2+1),yP=cy(r+1,d),yM=(y1+y2)/2,xS=r*(CW+COL)+CW,xD=(r+1)*(CW+COL),xM=xS+COL/2;lines.push(<g key={r+"-"+d}><line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/><line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/><line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/><line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>{yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}</g>);}}}
+  else{for(let r=0;r<nC-1;r++){const nP=rounds[r].length;for(let d=0;d<nP;d++){const y1=cy(r+1,d*2),y2=cy(r+1,d*2+1),yP=cy(r,d),yM=(y1+y2)/2,xS=(r+1)*(CW+COL),xD=r*(CW+COL)+CW,xM=xS-COL/2;lines.push(<g key={r+"-"+d}><line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/><line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/><line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/><line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>{yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}</g>);}}}
   const LBLS=ltr?["R32","R16","QF","SF"]:["SF","QF","R16","R32"];
   return(
     <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
       <svg style={{position:"absolute",top:0,left:0,width:W,height:BH,pointerEvents:"none"}}>{lines}</svg>
-      {rounds.map((_,r)=>(
-        <div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>
-      ))}
-      {rounds.map((ms,r)=>ms.map((m,s)=>(
-        <div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}>
-          <BCard m={m} circled={circled?.has(m?.id)} C={C}/>
-        </div>
-      )))}
+      {rounds.map((_,r)=>(<div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>))}
+      {rounds.map((ms,r)=>ms.map((m,s)=>(<div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}><BCard m={m} circled={circled?.has(m?.id)} C={C}/></div>)))}
     </div>
   );
 }
@@ -513,13 +548,12 @@ function VisualBracket({sim,C,t}){
   const RR16=["M93","M94","M95","M96"].map(id=>find(sim.r16,id));
   const RQF=["M99","M100"].map(id=>find(sim.qf,id));
   const FW=190+COL*2,sfY=slotY(3,0);
-  const ZS=[{l:"100%",v:1},{l:"75%",v:0.75},{l:"50%",v:0.5},{l:"33%",v:0.33}];
   return(
     <div style={{paddingBottom:16}}>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:9,color:C.muted,letterSpacing:1}}>{t.zoom}:</span>
-        {ZS.map(z=>(
-          <button key={z.v} onClick={()=>setZoom(z.v)} style={{padding:"3px 10px",borderRadius:6,fontSize:10,background:zoom===z.v?C.accent+"33":"transparent",color:zoom===z.v?C.accent:C.muted,border:`1px solid ${zoom===z.v?C.accent:C.border}`,fontWeight:zoom===z.v?"700":"400"}}>{z.l}</button>
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:9,color:C.muted}}>{t.zoom}:</span>
+        {[{l:"100%",v:1},{l:"75%",v:0.75},{l:"50%",v:0.5},{l:"33%",v:0.33}].map(z=>(
+          <button key={z.v} onClick={()=>setZoom(z.v)} style={{padding:"3px 10px",borderRadius:6,fontSize:10,background:zoom===z.v?C.accent+"33":"transparent",color:zoom===z.v?C.accent:C.muted,border:`1px solid ${zoom===z.v?C.accent:C.border}`}}>{z.l}</button>
         ))}
       </div>
       <div style={{overflowX:"auto"}}>
@@ -553,34 +587,16 @@ function GroupTable({grp,data,C,t}){
         <span style={{fontSize:10,color:C.muted,letterSpacing:2}}>GRUPO {grp} · {GROUP_VENUES[grp]}</span>
       </div>
       <table style={{width:"100%"}}>
-        <thead>
-          <tr style={{background:C.surface}}>
-            {["","Selección",t.rank,"G","E","P","GF","GC","DG","Pts"].map((h,i)=>(
-              <th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Selección"?"left":"center",fontSize:10}}>{h}</th>
-            ))}
-          </tr>
-        </thead>
+        <thead><tr style={{background:C.surface}}>{["","Selección",t.rank,"G","E","P","GF","GC","DG","Pts"].map((h,i)=>(<th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Selección"?"left":"center",fontSize:10}}>{h}</th>))}</tr></thead>
         <tbody>
           {teams.map((tm,i)=>{
             const gd=data.gf[tm]-data.ga[tm];
             return(
               <tr key={tm} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i===1?`${C.accent}11`:"transparent"}}>
-                <td style={{padding:"5px 6px",textAlign:"center"}}>
-                  <span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#333",color:i<3?"#000":"#555"}}>{i+1}</span>
-                </td>
-                <td style={{padding:"5px 6px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{fontSize:15}}>{fl(tm)}</span>
-                    <span style={{color:i<2?C.text:C.muted,fontWeight:i<2?"600":"400",fontSize:11}}>{tm}</span>
-                    {i===0&&<span style={{fontSize:7,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1°</span>}
-                    {i===1&&<span style={{fontSize:7,background:C.accent,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2°</span>}
-                    {i===2&&<span style={{fontSize:7,background:"#1a3a0a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3°?</span>}
-                  </div>
-                </td>
+                <td style={{padding:"5px 6px",textAlign:"center"}}><span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#222",color:i<3?"#000":"#555"}}>{i+1}</span></td>
+                <td style={{padding:"5px 6px"}}><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:15}}>{fl(tm)}</span><span style={{color:i<2?C.text:C.muted,fontWeight:i<2?"600":"400",fontSize:11}}>{tm}</span>{i===0&&<span style={{fontSize:7,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1°</span>}{i===1&&<span style={{fontSize:7,background:C.accent,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2°</span>}{i===2&&<span style={{fontSize:7,background:"#1a3a0a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3°?</span>}</div></td>
                 <td style={{padding:"5px",textAlign:"center"}}><span style={{fontSize:10,color:i<2?C.gold:C.muted}}>#{INTL_RANK[tm]||"?"}</span></td>
-                {[data.wins[tm],data.draws[tm],data.losses[tm],data.gf[tm],data.ga[tm]].map((v,j)=>(
-                  <td key={j} style={{padding:"5px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>
-                ))}
+                {[data.wins[tm],data.draws[tm],data.losses[tm],data.gf[tm],data.ga[tm]].map((v,j)=>(<td key={j} style={{padding:"5px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>))}
                 <td style={{padding:"5px",textAlign:"center",color:gd>0?C.green:gd<0?C.red:C.muted,fontWeight:"600",fontSize:11}}>{gd>0?"+":""}{gd}</td>
                 <td style={{padding:"5px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[tm]}</td>
               </tr>
@@ -658,32 +674,15 @@ function EngineTab({levelId,locked,ls,C,t}){
   const[groupFilter,setGroupFilter]=useState('ALL');
   const pct=v=>{
     const color=v>=50?C.gold:v>=25?C.accent:v>=10?C.blue:C.muted;
-    return(
-      <div style={{display:"flex",alignItems:"center",gap:4}}>
-        <div style={{flex:1,height:4,background:C.border,borderRadius:2,overflow:"hidden"}}>
-          <div style={{width:`${v}%`,height:"100%",background:color,borderRadius:2,transition:"width 0.3s"}}/>
-        </div>
-        <span style={{fontSize:10,fontWeight:"700",color,minWidth:30,textAlign:"right"}}>{v}%</span>
-      </div>
-    );
+    return(<div style={{display:"flex",alignItems:"center",gap:4}}><div style={{flex:1,height:4,background:C.border,borderRadius:2,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:color,borderRadius:2,transition:"width 0.3s"}}/></div><span style={{fontSize:10,fontWeight:"700",color,minWidth:30,textAlign:"right"}}>{v}%</span></div>);
   };
-  const run=async()=>{
-    setRunning(true);setResults(null);setProgress(0);
-    const r=await runEngine(levelId,locked,ls,p=>setProgress(p));
-    setResults(r);setRunning(false);
-  };
-  const sorted=useMemo(()=>{
-    if(!results)return[];
-    let r=[...results];
-    if(groupFilter!=='ALL')r=r.filter(x=>x.group===groupFilter);
-    return r.sort((a,b)=>b[sortCol]-a[sortCol]);
-  },[results,sortCol,groupFilter]);
+  const run=async()=>{setRunning(true);setResults(null);setProgress(0);const r=await runEngine(levelId,locked,ls,p=>setProgress(p));setResults(r);setRunning(false);};
+  const sorted=useMemo(()=>{if(!results)return[];let r=[...results];if(groupFilter!=='ALL')r=r.filter(x=>x.group===groupFilter);return r.sort((a,b)=>b[sortCol]-a[sortCol]);},[results,sortCol,groupFilter]);
   return(
     <div>
-      {/* Header */}
       <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:14,padding:"14px 16px",marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <OlivosLogo size={36} color={C.gold}/>
+          <img src="./images/Olivos_Oracle_rojo.png" style={{width:44,height:44,objectFit:"contain",borderRadius:8}} alt="Olivos Oracle"/>
           <div>
             <div style={{fontSize:16,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div>
             <div style={{fontSize:10,color:C.muted,letterSpacing:1}}>{t.engineSub}</div>
@@ -691,13 +690,7 @@ function EngineTab({levelId,locked,ls,C,t}){
         </div>
         <div style={{fontSize:11,color:C.text,lineHeight:1.6,borderTop:`1px solid ${C.goldDim}`,paddingTop:8}}>{t.engineDesc}</div>
       </div>
-      {/* Run button */}
-      {!running&&(
-        <button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14,cursor:"pointer"}}>
-          🧬 {t.runEngine}
-        </button>
-      )}
-      {/* Progress bar */}
+      {!running&&(<button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14}}>🧬 {t.runEngine}</button>)}
       {running&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px",marginBottom:14}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
@@ -707,54 +700,31 @@ function EngineTab({levelId,locked,ls,C,t}){
           <div style={{width:"100%",height:10,background:C.border,borderRadius:5,overflow:"hidden"}}>
             <div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,borderRadius:5,transition:"width 0.1s"}}/>
           </div>
-          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones · {Math.round(progress*100)}  completadas</div>
+          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones completadas: {Math.round(progress*100)}</div>
         </div>
       )}
-      {/* Results */}
       {results&&!running&&(
         <div>
-          <div style={{fontSize:9,color:C.green,marginBottom:10,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone} — {results.length} selecciones</div>
-          {/* Filters */}
-          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{fontSize:9,color:C.green,marginBottom:10,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone}</div>
+          <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
             <span style={{fontSize:9,color:C.muted}}>{t.sortBy}:</span>
             {[['win',t.colWin],['final',t.colFinal],['sf',t.colSF],['qf',t.colQF],['r16',t.colR16],['winGroup',t.colWinGroup]].map(([k,label])=>(
               <button key={k} onClick={()=>setSortCol(k)} style={{padding:"3px 8px",borderRadius:10,fontSize:9,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{label}</button>
             ))}
           </div>
           <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
-            {['ALL',...Object.keys(GROUPS)].map(g=>(
-              <button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"2px 8px",borderRadius:8,fontSize:9,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`}}>{g==='ALL'?'Todos':g}</button>
-            ))}
+            {['ALL',...Object.keys(GROUPS)].map(g=>(<button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"2px 8px",borderRadius:8,fontSize:9,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`}}>{g==='ALL'?'Todos':g}</button>))}
           </div>
-          {/* Table */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead>
-                <tr style={{background:C.surface}}>
-                  <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>#</th>
-                  <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colTeam}</th>
-                  <th style={{padding:"6px 8px",textAlign:"center",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colGroup}</th>
-                  {[t.colWinGroup,t.colR32,t.colR16,t.colQF,t.colSF,t.colFinal,t.colWin].map((h,i)=>(
-                    <th key={i} style={{padding:"6px 4px",textAlign:"center",fontSize:8,color:C.muted,fontWeight:"700",minWidth:55}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr style={{background:C.surface}}><th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>#</th><th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colTeam}</th><th style={{padding:"6px 8px",textAlign:"center",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colGroup}</th>{[t.colWinGroup,t.colR32,t.colR16,t.colQF,t.colSF,t.colFinal,t.colWin].map((h,i)=>(<th key={i} style={{padding:"6px 4px",textAlign:"center",fontSize:8,color:C.muted,fontWeight:"700",minWidth:55}}>{h}</th>))}</tr></thead>
               <tbody>
                 {sorted.map((row,i)=>(
                   <tr key={row.team} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i<3?`${C.gold}08`:"transparent"}}>
                     <td style={{padding:"5px 8px",fontSize:10,color:C.muted,fontWeight:"700"}}>{i+1}</td>
-                    <td style={{padding:"5px 8px"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:14}}>{fl(row.team)}</span>
-                        <span style={{fontSize:10,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</span>
-                      </div>
-                    </td>
-                    <td style={{padding:"5px 4px",textAlign:"center"}}>
-                      <span style={{fontSize:10,background:C.accent+"22",color:C.accent,padding:"1px 5px",borderRadius:4,fontWeight:"700"}}>{row.group}</span>
-                    </td>
-                    {[row.winGroup,row.r32,row.r16,row.qf,row.sf,row.final,row.win].map((v,j)=>(
-                      <td key={j} style={{padding:"4px 4px",minWidth:55}}>{pct(v)}</td>
-                    ))}
+                    <td style={{padding:"5px 8px"}}><div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{fl(row.team)}</span><span style={{fontSize:10,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</span></div></td>
+                    <td style={{padding:"5px 4px",textAlign:"center"}}><span style={{fontSize:10,background:C.accent+"22",color:C.accent,padding:"1px 5px",borderRadius:4,fontWeight:"700"}}>{row.group}</span></td>
+                    {[row.winGroup,row.r32,row.r16,row.qf,row.sf,row.final,row.win].map((v,j)=>(<td key={j} style={{padding:"4px 4px",minWidth:55}}>{pct(v)}</td>))}
                   </tr>
                 ))}
               </tbody>
@@ -767,47 +737,35 @@ function EngineTab({levelId,locked,ls,C,t}){
 }
 
 // ─── WHAT-IF TAB ──────────────────────────────────────────────
-function WhatIfTab({sim,locked,ls,levelId,onWhatifChange,whatif,C,t}){
+function WhatIfTab({sim,locked,onWhatifChange,whatif,C,t}){
   const[localWhatif,setLocalWhatif]=useState({...whatif});
   const[editing,setEditing]=useState(null);
   const[editA,setEditA]=useState(0);
   const[editB,setEditB]=useState(0);
   const allGroupMatches=[];
-  Object.entries(sim.gr).forEach(([g,data])=>{
-    data.matches.forEach(m=>{
-      const k=`${m.a}|${m.b}`;
-      allGroupMatches.push({...m,group:g,key:k,isLocked:m.locked,isWhatif:!!localWhatif[k]});
-    });
-  });
-  const applyEdit=()=>{
-    if(!editing)return;
-    setLocalWhatif(prev=>({...prev,[editing.key]:{home:editA,away:editB}}));
-    setEditing(null);
-  };
+  Object.entries(sim.gr).forEach(([g,data])=>{data.matches.forEach(m=>{const k=`${m.a}|${m.b}`;allGroupMatches.push({...m,group:g,key:k,isLocked:m.locked,isWhatif:!!localWhatif[k]});});});
+  const applyEdit=()=>{if(!editing)return;setLocalWhatif(prev=>({...prev,[editing.key]:{home:editA,away:editB}}));setEditing(null);};
   const resetAll=()=>{setLocalWhatif({});onWhatifChange({});};
   const applyAll=()=>onWhatifChange(localWhatif);
   return(
     <div>
-      {/* Instructions */}
       <div style={{background:`${C.blue}18`,border:`1px solid ${C.blue}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
         <div style={{fontSize:12,fontWeight:"900",color:C.blue,letterSpacing:2,marginBottom:6}}>🔀 {t.whatifTitle}</div>
         <div style={{fontSize:11,color:C.text,lineHeight:1.7}}>{t.whatifDesc}</div>
       </div>
-      {/* Action buttons */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        <button onClick={applyAll} style={{flex:1,padding:"10px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:12,fontWeight:"700",cursor:"pointer"}}>✅ {t.whatifApply}</button>
-        <button onClick={resetAll} style={{flex:1,padding:"10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12,cursor:"pointer"}}>🔄 {t.whatifReset}</button>
+        <button onClick={applyAll} style={{flex:1,padding:"10px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:12,fontWeight:"700"}}>✅ {t.whatifApply}</button>
+        <button onClick={resetAll} style={{flex:1,padding:"10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12}}>🔄 {t.whatifReset}</button>
       </div>
-      {/* Match list */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         {allGroupMatches.map((m,i)=>{
           const wi=localWhatif[m.key];
           return(
             <div key={i} style={{background:m.isLocked?C.surface:wi?`${C.blue}11`:C.card,border:`1px solid ${m.isLocked?C.border:wi?C.blue:C.border}`,borderRadius:10,padding:"9px 10px",opacity:m.isLocked?0.7:1}}>
               <div style={{fontSize:8,color:C.muted,marginBottom:4,display:"flex",justifyContent:"space-between"}}>
-                <span style={{color:m.isLocked?C.muted:wi?C.blue:C.muted}}>Grupo {m.group}</span>
+                <span>Grupo {m.group}</span>
                 {m.isLocked&&<span style={{fontSize:8,color:C.muted}}>{t.whatifLocked}</span>}
-                {wi&&!m.isLocked&&<span style={{fontSize:8,color:C.blue}}>✏️ {t.whatifCustom}: {wi.home}-{wi.away}</span>}
+                {wi&&!m.isLocked&&<span style={{fontSize:8,color:C.blue}}>✏️ {wi.home}-{wi.away}</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:13}}>{fl(m.a)}</span>
@@ -816,24 +774,19 @@ function WhatIfTab({sim,locked,ls,levelId,onWhatifChange,whatif,C,t}){
                 <span style={{fontSize:11,color:C.text,flex:1,textAlign:"center"}}>{m.b.split(" ")[0]}</span>
                 <span style={{fontSize:13}}>{fl(m.b)}</span>
               </div>
-              {!m.isLocked&&(
-                editing&&editing.key===m.key?(
-                  <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                    <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)}
-                      style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
-                    <span style={{color:C.muted}}>-</span>
-                    <input type="number" min="0" max="20" value={editB} onChange={e=>setEditB(+e.target.value)}
-                      style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
-                    <button onClick={applyEdit} style={{flex:1,padding:"3px 6px",background:C.gold,border:"none",borderRadius:5,color:"#000",fontSize:10,fontWeight:"700",cursor:"pointer"}}>✓</button>
-                    <button onClick={()=>setEditing(null)} style={{padding:"3px 6px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10,cursor:"pointer"}}>✗</button>
-                  </div>
-                ):(
-                  <button onClick={()=>{setEditing(m);setEditA(wi?.home??1);setEditB(wi?.away??0);}}
-                    style={{width:"100%",padding:"4px",background:"transparent",border:`1px dashed ${C.border}`,borderRadius:6,color:C.muted,fontSize:9,cursor:"pointer"}}>
-                    {wi?`${wi.home}-${wi.away} · Cambiar`:"+ Definir marcador"}
-                  </button>
-                )
-              )}
+              {!m.isLocked&&(editing&&editing.key===m.key?(
+                <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                  <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                  <span style={{color:C.muted}}>-</span>
+                  <input type="number" min="0" max="20" value={editB} onChange={e=>setEditB(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                  <button onClick={applyEdit} style={{flex:1,padding:"3px 6px",background:C.gold,border:"none",borderRadius:5,color:"#000",fontSize:10,fontWeight:"700"}}>✓</button>
+                  <button onClick={()=>setEditing(null)} style={{padding:"3px 6px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10}}>✗</button>
+                </div>
+              ):(
+                <button onClick={()=>{setEditing(m);setEditA(wi?.home??1);setEditB(wi?.away??0);}} style={{width:"100%",padding:"4px",background:"transparent",border:`1px dashed ${C.border}`,borderRadius:6,color:C.muted,fontSize:9}}>
+                  {wi?`${wi.home}-${wi.away} · Cambiar`:"+ Definir marcador"}
+                </button>
+              ))}
             </div>
           );
         })}
@@ -843,7 +796,7 @@ function WhatIfTab({sim,locked,ls,levelId,onWhatifChange,whatif,C,t}){
 }
 
 // ─── ADMIN TAB ────────────────────────────────────────────────
-function AdminTab({sim,locked,C,t}){
+function AdminTab({C,t}){
   const[conflicts,setConflicts]=useState([]);
   const[matches,setMatches]=useState([]);
   const[editing,setEditing]=useState(null);
@@ -851,22 +804,11 @@ function AdminTab({sim,locked,C,t}){
   const[editA,setEditA]=useState(0);
   const[msg,setMsg]=useState('');
   useEffect(()=>{
-    supaFetch('conflict_log?resolved=eq.false&select=*,matches(home_team,away_team)').then(d=>setConflicts(d||[]));
-    supaFetch('matches?competition=eq.WC2026&select=id,home_team,away_team,home_score,away_score,locked,confidence&order=match_date').then(d=>setMatches(d||[]));
+    supaFetch('conflict_log?resolved=eq.false&select=*').then(d=>setConflicts(d||[]));
+    supaFetch('matches?competition=eq.WC2026&select=id,home_team,away_team,home_score,away_score,locked&order=match_date').then(d=>setMatches(d||[]));
   },[]);
-  const doLock=async(id,lock)=>{
-    await supaWrite(`matches?id=eq.${id}`,{locked:lock},'PATCH');
-    setMatches(prev=>prev.map(m=>m.id===id?{...m,locked:lock}:m));
-    setMsg(lock?`🔒 ${id} bloqueado`:`🔓 ${id} desbloqueado`);
-    setTimeout(()=>setMsg(''),3000);
-  };
-  const doOverride=async()=>{
-    if(!editing)return;
-    await supaWrite(`matches?id=eq.${editing.id}`,{home_score:editH,away_score:editA,admin_override:true,locked:true},'PATCH');
-    setMatches(prev=>prev.map(m=>m.id===editing.id?{...m,home_score:editH,away_score:editA,locked:true}:m));
-    setEditing(null);setMsg(`✅ ${editing.id} corregido: ${editH}-${editA}`);
-    setTimeout(()=>setMsg(''),3000);
-  };
+  const doLock=async(id,lock)=>{await supaWrite(`matches?id=eq.${id}`,{locked:lock},'PATCH');setMatches(prev=>prev.map(m=>m.id===id?{...m,locked:lock}:m));setMsg(lock?`🔒 ${id} bloqueado`:`🔓 ${id} desbloqueado`);setTimeout(()=>setMsg(''),3000);};
+  const doOverride=async()=>{if(!editing)return;await supaWrite(`matches?id=eq.${editing.id}`,{home_score:editH,away_score:editA,admin_override:true,locked:true},'PATCH');setMatches(prev=>prev.map(m=>m.id===editing.id?{...m,home_score:editH,away_score:editA,locked:true}:m));setEditing(null);setMsg(`✅ ${editing.id}: ${editH}-${editA}`);setTimeout(()=>setMsg(''),3000);};
   return(
     <div>
       <div style={{background:`${C.red}11`,border:`2px solid ${C.red}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
@@ -874,35 +816,19 @@ function AdminTab({sim,locked,C,t}){
         <div style={{fontSize:9,color:C.muted,marginTop:2}}>Acceso restringido · Cambios en tiempo real</div>
       </div>
       {msg&&<div style={{background:C.green+"22",border:`1px solid ${C.green}`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:C.green}}>{msg}</div>}
-      {/* Conflicts */}
-      {conflicts.length>0&&(
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:10,color:C.red,fontWeight:"700",letterSpacing:2,marginBottom:8}}>⚠️ {t.adminConflicts} ({conflicts.length})</div>
-          {conflicts.map((c,i)=>(
-            <div key={i} style={{background:C.card,border:`1px solid ${C.red}`,borderRadius:10,padding:"10px",marginBottom:6}}>
-              <div style={{fontSize:10,color:C.red,fontWeight:"700"}}>{c.match_id}</div>
-              <div style={{fontSize:9,color:C.muted,marginTop:3}}>
-                football-data.org: <strong style={{color:C.text}}>{c.primary_score}</strong> · API-Football: <strong style={{color:C.text}}>{c.secondary_score}</strong>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* Match list */}
-      <div style={{fontSize:10,color:C.muted,letterSpacing:2,marginBottom:8}}>PARTIDOS WC2026 ({matches.length})</div>
+      {conflicts.length>0&&(<div style={{marginBottom:14}}><div style={{fontSize:10,color:C.red,fontWeight:"700",letterSpacing:2,marginBottom:8}}>⚠️ {t.adminConflicts} ({conflicts.length})</div>{conflicts.map((c,i)=>(<div key={i} style={{background:C.card,border:`1px solid ${C.red}`,borderRadius:10,padding:"10px",marginBottom:6}}><div style={{fontSize:10,color:C.red,fontWeight:"700"}}>{c.match_id}</div><div style={{fontSize:9,color:C.muted,marginTop:3}}>FD: <strong style={{color:C.text}}>{c.primary_score}</strong> · AF: <strong style={{color:C.text}}>{c.secondary_score}</strong></div></div>))}</div>)}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:2,marginBottom:8}}>PARTIDOS ({matches.length})</div>
       {matches.map((m,i)=>(
         <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 11px",marginBottom:6}}>
           {editing&&editing.id===m.id?(
             <div>
               <div style={{fontSize:10,fontWeight:"700",color:C.text,marginBottom:8}}>{m.home_team} vs {m.away_team}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                <input type="number" min="0" max="20" value={editH} onChange={e=>setEditH(+e.target.value)}
-                  style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <input type="number" min="0" max="20" value={editH} onChange={e=>setEditH(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
                 <span style={{color:C.muted,fontSize:14}}>-</span>
-                <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)}
-                  style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
-                <button onClick={doOverride} style={{flex:1,padding:"6px",background:C.gold,border:"none",borderRadius:6,color:"#000",fontSize:11,fontWeight:"700",cursor:"pointer"}}>{t.adminSave}</button>
-                <button onClick={()=>setEditing(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontSize:11,cursor:"pointer"}}>{t.adminCancel}</button>
+                <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <button onClick={doOverride} style={{flex:1,padding:"6px",background:C.gold,border:"none",borderRadius:6,color:"#000",fontSize:11,fontWeight:"700"}}>{t.adminSave}</button>
+                <button onClick={()=>setEditing(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontSize:11}}>{t.adminCancel}</button>
               </div>
             </div>
           ):(
@@ -912,12 +838,8 @@ function AdminTab({sim,locked,C,t}){
                 <div style={{fontSize:9,color:C.muted}}>{m.id} · {m.home_score??"-"}-{m.away_score??"-"} · <span style={{color:m.locked?C.green:C.muted}}>{m.locked?"🔒":"⬜"}</span></div>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}}>
-                <button onClick={()=>doLock(m.id,!m.locked)} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${m.locked?C.red:C.green}`,borderRadius:6,color:m.locked?C.red:C.green,fontSize:9,cursor:"pointer"}}>
-                  {m.locked?t.adminUnlock:t.adminLock}
-                </button>
-                <button onClick={()=>{setEditing(m);setEditH(m.home_score??0);setEditA(m.away_score??0);}} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:9,cursor:"pointer"}}>
-                  {t.adminOverride}
-                </button>
+                <button onClick={()=>doLock(m.id,!m.locked)} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${m.locked?C.red:C.green}`,borderRadius:6,color:m.locked?C.red:C.green,fontSize:9}}>{m.locked?t.adminUnlock:t.adminLock}</button>
+                <button onClick={()=>{setEditing(m);setEditH(m.home_score??0);setEditA(m.away_score??0);}} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:9}}>{t.adminOverride}</button>
               </div>
             </div>
           )}
@@ -927,27 +849,84 @@ function AdminTab({sim,locked,C,t}){
   );
 }
 
-// ─── SHARE BUTTON ─────────────────────────────────────────────
-function ShareBtn({sim,C,t}){
+// ─── SHARE SECTION ────────────────────────────────────────────
+const OLIVOS_IMAGES=['./images/olivos-1.jpg','./images/olivos-2.jpg','./images/olivos-3.jpg','./images/olivos-4.jpg','./images/olivos-5.jpg','./images/olivos-6.jpg','./images/olivos-7.jpg','./images/olivos-8.jpeg'];
+
+function ImageScroll(){
+  return(
+    <div className="img-scroll">
+      {OLIVOS_IMAGES.map((src,i)=>(
+        <img key={i} src={src} alt={`Olivos ${i+1}`} loading="lazy"/>
+      ))}
+    </div>
+  );
+}
+
+function ShareSection({C,t,sim}){
   const[copied,setCopied]=useState(false);
-  const share=()=>{
+  const shareText=()=>{
     const txt=[
-      `🧬 Olivos Predictor · Copa del Mundo 2026`,``,
+      `🧬 Olivos Oracle · Copa del Mundo 2026`,``,
       `🏆 Campeón: ${fl(sim.final.w)} ${sim.final.w}`,
       `Final: ${sim.final.a} ${sim.final.sa}-${sim.final.sb} ${sim.final.b}`,``,
-      `Semifinales:`,
-      `  ${sim.sf[0].a} ${sim.sf[0].sa}-${sim.sf[0].sb} ${sim.sf[0].b}`,
-      `  ${sim.sf[1].a} ${sim.sf[1].sa}-${sim.sf[1].sb} ${sim.sf[1].b}`,``,
-      `Ganadores de grupo:`,
-      ...Object.entries(sim.gr).map(([g,d])=>`  Grupo ${g}: ${fl(d.p1)} ${d.p1}`),``,
-      `olivospredictor.vercel.app`,
+      `Prueba el simulador:`,
+      `https://berwc26sim.vercel.app/`,
     ].join('\n');
     navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
   };
   return(
-    <button onClick={share} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${copied?C.gold:C.border}`,background:copied?C.gold+"22":"transparent",color:copied?C.gold:C.muted,fontSize:10,letterSpacing:1,transition:"all 0.2s"}}>
-      {copied?`✅ ${t.shared}`:`📤 ${t.share}`}
-    </button>
+    <div style={{marginTop:32,borderTop:`2px solid ${C.gold}`,paddingTop:24}}>
+      {/* Section 1 — Share this app */}
+      <div style={{marginBottom:28}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <img src="./images/Olivos_Oracle_rojo.png" style={{width:36,height:36,objectFit:"contain"}} alt="Oracle"/>
+          <div>
+            <div style={{fontSize:14,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.shareApp}</div>
+            <div style={{fontSize:11,color:C.muted}}>{t.shareAppDesc}</div>
+          </div>
+        </div>
+        <ImageScroll/>
+        <div style={{display:"flex",gap:14,alignItems:"center",marginTop:14,flexWrap:"wrap",justifyContent:"center"}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:9,color:C.muted,marginBottom:6,letterSpacing:1}}>{t.scanQR}</div>
+            <div style={{background:C.bg,padding:6,borderRadius:12,border:`2px solid ${C.gold}`,display:"inline-block"}}>
+              <AppQR size={160} C={C}/>
+            </div>
+            <div style={{fontSize:9,color:C.muted,marginTop:4}}>berwc26sim.vercel.app</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <button onClick={shareText} style={{padding:"10px 20px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:20,color:C.gold,fontSize:12,fontWeight:"700",letterSpacing:1}}>
+              {copied?`✅ ${t.shared}`:`📤 ${t.share}`}
+            </button>
+            <a href="https://berwc26sim.vercel.app/" target="_blank" rel="noreferrer" style={{padding:"10px 20px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:20,color:C.muted,fontSize:11,textAlign:"center",textDecoration:"none"}}>
+              🌐 Abrir app
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 2 — Olivos Collect */}
+      <div style={{borderTop:`1px solid ${C.border}`,paddingTop:24}}>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:C.gold,letterSpacing:3,fontWeight:"700",marginBottom:4}}>{t.otherApps}</div>
+          <div style={{fontSize:18,fontWeight:"900",color:C.text}}>{t.collectTitle}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:4,lineHeight:1.6}}>{t.collectDesc}</div>
+        </div>
+        <ImageScroll/>
+        <div style={{display:"flex",gap:14,alignItems:"center",marginTop:14,flexWrap:"wrap",justifyContent:"center"}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:9,color:C.muted,marginBottom:6,letterSpacing:1}}>{t.scanQR}</div>
+            <div style={{background:"#fff",padding:8,borderRadius:12,border:`2px solid ${C.gold}`,display:"inline-block"}}>
+              <img src="./images/qr-olivos.jpg" style={{width:148,height:148,display:"block",borderRadius:6}} alt="QR Olivos Collect"/>
+            </div>
+            <div style={{fontSize:9,color:C.muted,marginTop:4}}>Olivos Collect</div>
+          </div>
+          <button style={{padding:"12px 24px",background:C.gold,border:"none",borderRadius:20,color:"#000",fontSize:13,fontWeight:"900",letterSpacing:1}}>
+            🎴 {t.collectBtn}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -958,12 +937,7 @@ function LiveBadge({status,liveMatches,C,t}){
   const hasLive=liveMatches&&liveMatches.length>0;
   return(
     <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-      {hasLive&&(
-        <div style={{display:"flex",alignItems:"center",gap:4,background:`${C.red}22`,border:`1px solid ${C.red}`,borderRadius:10,padding:"2px 8px"}}>
-          <div className="live-pulse" style={{width:7,height:7,borderRadius:"50%",background:C.liveDot}}/>
-          <span style={{fontSize:8,color:C.liveDot,fontWeight:"700",letterSpacing:1}}>{t.liveNow}</span>
-        </div>
-      )}
+      {hasLive&&(<div style={{display:"flex",alignItems:"center",gap:4,background:`${C.red}22`,border:`1px solid ${C.red}`,borderRadius:10,padding:"2px 8px"}}><div className="live-pulse" style={{width:7,height:7,borderRadius:"50%",background:C.liveDot}}/><span style={{fontSize:8,color:C.liveDot,fontWeight:"700",letterSpacing:1}}>{t.liveNow}</span></div>)}
       <div style={{fontSize:8,color:colors[status]||C.muted,border:`1px solid ${colors[status]||C.border}`,borderRadius:10,padding:"2px 8px",letterSpacing:1}}>
         {status==="live"?"🟢":status==="error"?"🔴":status==="loading"?"⏳":"⚪"} {labels[status]||status}
       </div>
@@ -985,6 +959,7 @@ function App(){
   const[liveMatches,setLiveMatches]=useState([]);
   const[lastUpd,setLastUpd]=useState(null);
   const[whatif,setWhatif]=useState({});
+  const[confettiFiredForChamp,setConfettiFiredForChamp]=useState(null);
   const isAdmin=checkAdmin();
   const C=dark?DARK:LIGHT;
   const t=T[lang];
@@ -998,7 +973,7 @@ function App(){
           supaFetch('matches?locked=eq.true&competition=eq.WC2026&select=home_team,away_team,home_score,away_score'),
           supaFetch('matches?status=eq.IN_PLAY&select=id,home_team,away_team,home_score,away_score'),
         ]);
-        if(teams&&teams.length>0){const m={};teams.forEach(t=>{m[t.id]={form_score:t.form_score||0};});setLs(m);}
+        if(teams&&teams.length>0){const m={};teams.forEach(tm=>{m[tm.id]={form_score:tm.form_score||0};});setLs(m);}
         if(lockedM&&lockedM.length>0){const m={};lockedM.forEach(r=>{m[`${r.home_team}|${r.away_team}`]={home:r.home_score,away:r.away_score};});setLocked(m);}
         setLiveMatches(live||[]);
         setLiveStatus(teams&&teams.length>0?'live':'cached');
@@ -1013,10 +988,22 @@ function App(){
   useEffect(()=>{document.body.className=dark?"":"light";document.body.style.background=C.bg;},[dark]);
   useEffect(()=>{setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null));},[levelId,locked,ls,whatif]);
 
+  // Fire confetti when Final tab opens
+  useEffect(()=>{
+    if(tab==='final'&&sim){
+      const champ=sim.final.w;
+      if(champ&&champ!==confettiFiredForChamp){
+        setConfettiFiredForChamp(champ);
+        confettiFired=false; // reset so it fires for new sim
+        setTimeout(()=>fireConfetti(),400);
+      }
+    }
+  },[tab,sim]);
+
   if(!sim)return(
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:C.gold}}>
-      <OlivosLogo size={48} color={C.gold}/>
-      <span style={{fontSize:14,letterSpacing:2}}>Cargando...</span>
+      <img src="./images/header-app.jpg" style={{width:"80%",maxWidth:320,borderRadius:12,objectFit:"contain"}} alt="Olivos Oracle"/>
+      <span style={{fontSize:14,letterSpacing:2,color:C.gold}}>Cargando...</span>
     </div>
   );
 
@@ -1035,38 +1022,39 @@ function App(){
   ];
 
   return(
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40,backgroundImage:`radial-gradient(ellipse at 50% 100%,${C.gold}08 0%,transparent 60%)`}}>
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40}}>
 
-      {/* HEADER */}
-      <div style={{background:C.headerBg,borderBottom:`2px solid ${C.gold}`,padding:"12px 14px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <OlivosLogo size={44} color={C.gold}/>
-            <div>
-              <div style={{fontSize:8,letterSpacing:5,color:C.gold,fontWeight:"700"}}>OLIVOS</div>
-              <div style={{fontSize:20,fontWeight:"900",color:C.text,letterSpacing:1}}>{t.appName.toUpperCase()}</div>
-              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.appSub}</div>
-            </div>
+      {/* HEADER IMAGE */}
+      <div style={{background:"#000",borderBottom:`2px solid ${C.gold}`}}>
+        <img src="./images/header-app.jpg" style={{width:"100%",maxHeight:120,objectFit:"cover",objectPosition:"center",display:"block"}} alt="Olivos Oracle"/>
+
+        {/* Controls row */}
+        <div style={{padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <LiveBadge status={liveStatus} liveMatches={liveMatches} C={C} t={t}/>
+            {lastUpd&&<span style={{fontSize:8,color:C.muted}}>{t.dataUpdated}: {lastUpd}</span>}
           </div>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              <LiveBadge status={liveStatus} liveMatches={liveMatches} C={C} t={t}/>
-              <button onClick={()=>setDark(d=>!d)} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:10,cursor:"pointer"}}>
-                {dark?"☀️":"🌙"}
-              </button>
-              <button onClick={()=>setLang(l=>l==='es'?'en':'es')} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:`${C.accent}11`,color:C.accent,fontSize:10,fontWeight:"700",cursor:"pointer"}}>
-                {lang==='es'?'EN':'ES'}
-              </button>
-            </div>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.champion}</div>
-              <div style={{fontSize:17,fontWeight:"700",color:C.gold}}>{fl(sim.final.w)} {sim.final.w}</div>
-              <div style={{fontSize:8,color:C.muted}}>#{INTL_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
-            </div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {Object.keys(whatif).length>0&&<span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:10,padding:"2px 8px"}}>🔀 What-If</span>}
+            <button onClick={()=>setDark(d=>!d)} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:10}}>{dark?"☀️":"🌙"}</button>
+            <button onClick={()=>setLang(l=>l==='es'?'en':'es')} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.accent}`,background:`${C.accent}11`,color:C.accent,fontSize:10,fontWeight:"700"}}>{lang==='es'?'EN':'ES'}</button>
           </div>
         </div>
+
+        {/* Champion bar */}
+        <div style={{padding:"8px 14px",background:`${C.gold}11`,borderTop:`1px solid ${C.goldDim}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
+          <div>
+            <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.champion}</div>
+            <div style={{fontSize:18,fontWeight:"900",color:C.gold}}>{fl(sim.final.w)} {sim.final.w}</div>
+            <div style={{fontSize:8,color:C.muted}}>#{INTL_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <button onClick={()=>setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null))} style={{padding:"5px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,fontSize:10,letterSpacing:1}}>🔄 {t.resim}</button>
+          </div>
+        </div>
+
         {/* Level selector */}
-        <div style={{marginTop:10}}>
+        <div style={{padding:"8px 14px 10px",borderTop:`1px solid ${C.border}`}}>
           <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:6}}>{t.simLevel.toUpperCase()}</div>
           <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
             {LEVELS.map(lv=>(
@@ -1075,26 +1063,13 @@ function App(){
               </button>
             ))}
           </div>
-          {curLv&&<div style={{marginTop:5,fontSize:8.5,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{t.levelDescs[levelId]}</div>}
-        </div>
-        {/* Action row */}
-        <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
-          <button onClick={()=>setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null))} style={{padding:"4px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,fontSize:10,letterSpacing:1}}>
-            🔄 {t.resim}
-          </button>
-          <ShareBtn sim={sim} C={C} t={t}/>
-          {lastUpd&&<span style={{fontSize:8,color:C.muted}}>{t.dataUpdated}: {lastUpd}</span>}
-          {Object.keys(whatif).length>0&&<span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:10,padding:"2px 8px"}}>🔀 What-If activo</span>}
+          {curLv&&<div style={{marginTop:4,fontSize:8.5,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{t.levelDescs[levelId]}</div>}
         </div>
       </div>
 
       {/* TABS */}
       <div style={{display:"flex",overflowX:"auto",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
-        {TABS.map(tb=>(
-          <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",color:tab===tb.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,borderBottom:tab===tb.id?`2px solid ${C.gold}`:"2px solid transparent",cursor:"pointer",fontWeight:tab===tb.id?"700":"400"}}>
-            {tb.label}
-          </button>
-        ))}
+        {TABS.map(tb=>(<button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",color:tab===tb.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,borderBottom:tab===tb.id?`2px solid ${C.gold}`:"2px solid transparent",cursor:"pointer",fontWeight:tab===tb.id?"700":"400"}}>{tb.label}</button>))}
       </div>
 
       <div style={{padding:"12px 14px"}}>
@@ -1102,45 +1077,25 @@ function App(){
         {tab==='groups'&&(
           <div>
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
-              {[t.groupsAF,t.groupsGL].map((l,i)=>(
-                <button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?C.gold+"11":"transparent",color:grpPage===i?C.gold:C.muted,cursor:"pointer",fontSize:10}}>
-                  {l}
-                </button>
-              ))}
+              {[t.groupsAF,t.groupsGL].map((l,i)=>(<button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?C.gold+"11":"transparent",color:grpPage===i?C.gold:C.muted,fontSize:10}}>{l}</button>))}
               <span style={{fontSize:8,color:C.muted}}>{t.best3rd}: {sim.best8.map(x=>`${x.team.split(" ")[0]}(${x.group})`).join(", ")}</span>
             </div>
-            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g)).map(([g,data])=>(
-              <GroupTable key={g} grp={g} data={data} C={C} t={t}/>
-            ))}
+            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g)).map(([g,data])=>(<GroupTable key={g} grp={g} data={data} C={C} t={t}/>))}
           </div>
         )}
 
         {tab==='bracket'&&<VisualBracket sim={sim} C={C} t={t}/>}
 
-        {tab==='r32'&&(
-          <div>
-            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 PARTIDOS · 28 JUN – 3 JUL</div>
-            <MatchGrid matches={sim.r32} circled={sim.CIRCLED} C={C} t={t}/>
-          </div>
-        )}
+        {tab==='r32'&&(<div><div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 PARTIDOS · 28 JUN – 3 JUL</div><MatchGrid matches={sim.r32} circled={sim.CIRCLED} C={C} t={t}/></div>)}
 
-        {tab==='r16'&&(
-          <div>
-            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 PARTIDOS · 4–7 JUL</div>
-            <MatchGrid matches={sim.r16} circled={sim.CIRCLED} C={C} t={t}/>
-          </div>
-        )}
+        {tab==='r16'&&(<div><div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 PARTIDOS · 4–7 JUL</div><MatchGrid matches={sim.r16} circled={sim.CIRCLED} C={C} t={t}/></div>)}
 
         {tab==='qfsf'&&(
           <div>
             <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>CUARTOS DE FINAL · 9–10 JUL</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-              {sim.qf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}
-            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>{sim.qf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}</div>
             <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMIFINALES · 13–15 JUL</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {sim.sf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}
-            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{sim.sf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}</div>
           </div>
         )}
 
@@ -1198,7 +1153,6 @@ function App(){
                   <div style={{marginTop:7,padding:"4px 9px",background:isFinal?C.gold+"18":C.green+"18",borderRadius:7,fontSize:10,color:isFinal?C.gold:C.green,fontWeight:"700"}}>
                     {isFinal?"🏆":"✓"} {t.winner}: {fl(m?.w)} {m?.w}
                   </div>
-                  <div style={{marginTop:3,fontSize:8,color:C.muted}}>Partido {m?.id} · {m?.venue}</div>
                 </div>
               );
             })}
@@ -1206,17 +1160,18 @@ function App(){
         )}
 
         {tab==='engine'&&<EngineTab levelId={levelId} locked={locked} ls={ls} C={C} t={t}/>}
+        {tab==='whatif'&&<WhatIfTab sim={sim} locked={locked} onWhatifChange={setWhatif} whatif={whatif} C={C} t={t}/>}
+        {tab==='admin'&&isAdmin&&<AdminTab C={C} t={t}/>}
 
-        {tab==='whatif'&&<WhatIfTab sim={sim} locked={locked} ls={ls} levelId={levelId} onWhatifChange={setWhatif} whatif={whatif} C={C} t={t}/>}
-
-        {tab==='admin'&&isAdmin&&<AdminTab sim={sim} locked={locked} C={C} t={t}/>}
+        {/* SHARE + COLLECT sections — always visible below tabs */}
+        <ShareSection C={C} t={t} sim={sim}/>
 
       </div>
 
       {/* FOOTER */}
-      <div style={{marginTop:36,padding:"12px 14px",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-        <OlivosLogo size={18} color={C.goldDim}/>
-        <span style={{fontSize:9,color:C.border,letterSpacing:2}}>OLIVOS PREDICTOR · WC2026 · SOLO SIMULACIÓN</span>
+      <div style={{marginTop:20,padding:"12px 14px",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+        <img src="./images/Olivos_Oracle_rojo.png" style={{width:18,height:18,objectFit:"contain",opacity:0.4}} alt=""/>
+        <span style={{fontSize:9,color:C.border,letterSpacing:2}}>OLIVOS ORACLE · WC2026 · SOLO SIMULACIÓN</span>
       </div>
 
     </div>
