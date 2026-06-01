@@ -91,7 +91,7 @@ const T={
     colTeam:'Selección',colGroup:'Grupo',colWinGroup:'Gana Grupo',colR32:'Diec.',colR16:'Octavos',colQF:'Cuartos',colSF:'Semis',colFinal:'Final',colWin:'🏆',
     sortBy:'Ordenar',
     whatifTitle:'¿QUÉ PASA SI?',
-    whatifDesc:'Ajusta resultados de partidos futuros. Los resultados reales bloqueados no se pueden cambiar. Toca cualquier partido para definir tu marcador.',
+    whatifDesc:'Solo ingresa los marcadores que quieras predecir. Los demás partidos se simulan automáticamente. Resultados reales bloqueados no se pueden cambiar.',
     whatifLocked:'🔒 Resultado real',whatifCustom:'Tu marcador',
     whatifReset:'Restablecer',whatifApply:'Aplicar',
     myTicketsTitle:'MIS PARTIDOS',
@@ -126,7 +126,7 @@ const T={
     colTeam:'Team',colGroup:'Grp',colWinGroup:'Win Grp',colR32:'R32',colR16:'R16',colQF:'QF',colSF:'SF',colFinal:'Final',colWin:'🏆',
     sortBy:'Sort',
     whatifTitle:'WHAT-IF?',
-    whatifDesc:'Adjust future match outcomes. Real locked results cannot be changed.',
+    whatifDesc:'Only enter the scores you want to predict. All other matches simulate automatically. Locked real results cannot be changed.',
     whatifLocked:'🔒 Real result',whatifCustom:'Your score',
     whatifReset:'Reset',whatifApply:'Apply',
     myTicketsTitle:'MY TICKETS',
@@ -158,10 +158,14 @@ const WC_HISTORY={Brazil:10,Germany:9,Argentina:9,France:8,Spain:7,England:6,Uru
 function computeBaseStr(team){
   const elo=ELO_BASE[team]||1600;
   const rank=FIFA_RANK[team]||80;
+  // Elo normalized: 1400=20, 2100=99 — this is 45% of the formula
   const eloN=Math.max(20,Math.min(99,Math.round((elo-1400)/700*79+20)));
-  const rankN=Math.max(30,Math.round(95-(rank-1)*0.45));
-  const hist=Math.min(10,WC_HISTORY[team]||0)*10;
-  return Math.round(eloN*0.45+rankN*0.30+hist*0.15+50*0.10);
+  // Rank normalized: rank1=95, rank150=25
+  const rankN=Math.max(25,Math.round(95-(rank-1)*0.47));
+  // History: tiebreaker only — max +2 points, not a dominant factor
+  const hist=Math.min(2,(WC_HISTORY[team]||0)*0.2);
+  // 55% Elo + 35% rank + 5% history + 5% squad proxy
+  return Math.round(eloN*0.55+rankN*0.35+hist+50*0.05);
 }
 const BASE_STR={};
 Object.keys(FIFA_RANK).forEach(t=>{BASE_STR[t]=computeBaseStr(t);});
