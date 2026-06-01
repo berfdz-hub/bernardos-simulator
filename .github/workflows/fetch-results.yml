@@ -4,7 +4,7 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:
 jobs:
-  fetch-results:
+  fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,9 +12,9 @@ jobs:
         with:
           node-version: '22'
       - run: cd scripts && npm install
-      - env:
+      - run: cd scripts && node fetch-results.js
+        env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: cd scripts && node fetch-results.js
