@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Olivos Oracle</title>
-<meta name="theme-color" content="#000000"/>
+<meta name="theme-color" content="#000"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Olivos Oracle"/>
@@ -18,25 +18,11 @@ table{border-collapse:collapse}
 body.light{background:#f0ede8}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes dogFall{
-  0%{transform:translateY(-120px) rotate(0deg) scale(1);opacity:1}
-  80%{opacity:1}
-  100%{transform:translateY(110vh) rotate(720deg) scale(0.7);opacity:0}
-}
-@keyframes dogBounce{
-  0%{transform:translateY(-100px) rotate(-20deg) scale(1.1);opacity:1}
-  40%{transform:translateY(40vh) rotate(200deg) scale(0.9)}
-  60%{transform:translateY(30vh) rotate(340deg) scale(1)}
-  100%{transform:translateY(110vh) rotate(540deg) scale(0.6);opacity:0}
-}
-@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes dogFall{0%{transform:translateY(-120px) rotate(0deg) scale(1);opacity:1}80%{opacity:1}100%{transform:translateY(110vh) rotate(720deg) scale(0.7);opacity:0}}
+@keyframes dogBounce{0%{transform:translateY(-100px) rotate(-20deg) scale(1.1);opacity:1}40%{transform:translateY(40vh) rotate(200deg) scale(0.9)}60%{transform:translateY(30vh) rotate(340deg) scale(1)}100%{transform:translateY(110vh) rotate(540deg) scale(0.6);opacity:0}}
 .live-pulse{animation:pulse 1.2s ease-in-out infinite}
 .spin{animation:spin 1s linear infinite}
-.dog-confetti{position:fixed;pointer-events:none;z-index:9999;width:64px;height:64px;object-fit:contain}
-/* Image gallery */
-.img-scroll{display:flex;gap:10px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
-.img-scroll::-webkit-scrollbar{display:none}
-.img-scroll img{height:160px;border-radius:10px;flex-shrink:0;object-fit:cover;border:2px solid #72CB2844}
+.dog-confetti{position:fixed;pointer-events:none;z-index:9999;object-fit:contain}
 </style>
 </head>
 <body>
@@ -48,347 +34,271 @@ body.light{background:#f0ede8}
 <script type="text/babel">
 const{useState,useEffect,useCallback,useRef,useMemo}=React;
 
-// ─── CONFETTI ─────────────────────────────────────────────────
-let confettiFired=false;
+// ── CONFETTI ──────────────────────────────────────────────────
+let _confettiFired=false;
 function fireConfetti(){
-  if(confettiFired)return;
-  confettiFired=true;
+  if(_confettiFired)return; _confettiFired=true;
   const layer=document.getElementById('confetti-layer');
   if(!layer)return;
   const dogs=['./images/chip-campeon.png','./images/chip-emocion.png'];
-  const N=28;
-  for(let i=0;i<N;i++){
+  for(let i=0;i<28;i++){
     setTimeout(()=>{
       const img=document.createElement('img');
       img.className='dog-confetti';
       img.src=dogs[i%2];
-      img.style.left=Math.random()*95+'vw';
-      img.style.top='-80px';
-      img.style.width=(44+Math.random()*32)+'px';
-      img.style.height='auto';
+      img.style.cssText=`left:${Math.random()*95}vw;top:-80px;width:${44+Math.random()*32}px;height:auto;`;
       const dur=1.8+Math.random()*2.2;
-      const anim=Math.random()>0.5?'dogFall':'dogBounce';
-      img.style.animation=`${anim} ${dur}s ease-in forwards`;
+      img.style.animation=`${Math.random()>.5?'dogFall':'dogBounce'} ${dur}s ease-in forwards`;
       layer.appendChild(img);
       setTimeout(()=>img.remove(),(dur+0.3)*1000);
     },i*120);
   }
-  setTimeout(()=>{confettiFired=false;},8000);
+  setTimeout(()=>{_confettiFired=false;},8000);
 }
 
-// ─── SUPABASE ─────────────────────────────────────────────────
+// ── SUPABASE ──────────────────────────────────────────────────
 const SUPA_URL='https://vbggmwixvtxbxxrpeimh.supabase.co';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZ2dtd2l4dnR4Ynh4cnBlaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDIyODMsImV4cCI6MjA5NTgxODI4M30.kesS2TNEPfH-XXIH_rOAnw9P9q39BCFIMTAh1nIExFA';
-async function supaFetch(path){
-  try{const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`}});if(!r.ok)return null;return await r.json();}catch{return null;}
-}
-async function supaWrite(path,body,method='POST'){
-  try{const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{method,headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(body)});return r.ok;}catch{return false;}
-}
+async function supaFetch(p){try{const r=await fetch(`${SUPA_URL}/rest/v1/${p}`,{headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`}});return r.ok?await r.json():null;}catch{return null;}}
+async function supaWrite(p,b,m='POST'){try{const r=await fetch(`${SUPA_URL}/rest/v1/${p}`,{method:m,headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(b)});return r.ok;}catch{return false;}}
 
-// ─── ADMIN ────────────────────────────────────────────────────
+// ── ADMIN ─────────────────────────────────────────────────────
 const ADMIN_HASH=btoa('Fish_OlivosAdmin2026');
 function checkAdmin(){const p=new URLSearchParams(window.location.search).get('admin');return p&&btoa(p+'_OlivosAdmin2026')===ADMIN_HASH;}
 
-// ─── I18N ─────────────────────────────────────────────────────
+// ── LOCALSTORAGE ──────────────────────────────────────────────
+function loadMyGames(){try{return JSON.parse(localStorage.getItem('olivos_my_games')||'[]');}catch{return[];}}
+function saveMyGames(ids){try{localStorage.setItem('olivos_my_games',JSON.stringify(ids));}catch{}}
+
+// ── I18N ──────────────────────────────────────────────────────
 const T={
   es:{
-    appSub:'COPA DEL MUNDO 2026 · SIMULADOR',
-    champion:'Campeón Predicho',rank:'Rank',
+    appSub:'COPA DEL MUNDO 2026',champion:'Campeón',rank:'Rank',
     liveData:'Datos en Vivo',cached:'En Caché',offline:'Sin Conexión',loading:'Cargando',
     simLevel:'Nivel de Simulación',
     levels:['','⭐ Más Probable','⭐⭐ Probable','⭐⭐⭐ Equilibrado','⭐⭐⭐⭐ Sorprendente','⭐⭐⭐⭐⭐ Caos'],
-    levelDescs:['','Rankings dominan. Sorpresas muy raras.','Los mejores equipos casi siempre ganan.','La mezcla perfecta de resultados realistas.','Sorpresas comunes. Los grandes pueden caer.','Todo es posible. Cualquier equipo puede ganar.'],
+    levelDescs:['','Rankings dominan. Sorpresas muy raras.','Los mejores equipos casi siempre ganan.','La mezcla perfecta de resultados realistas.','Sorpresas comunes. Los grandes pueden caer.','Todo es posible.'],
     resim:'Resimular',share:'Compartir',shared:'¡Copiado!',
-    tabs:['👥 Grupos','🏟️ Llave','⚔️ Dieciseisavos','🔵 Octavos','🔥 Cuartos y Semis','🥇 Final','🟣 Mis Partidos','🧬 Motor Olivos','🔀 ¿Qué Pasa Si?'],
-    tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
+    tabs:['👥 Grupos','🏟️ Llave','⚔️ Dieciseisavos','🔵 Octavos','🔥 Cuartos y Semis','🥇 Final','🎟️ Mis Partidos'],
+    tabIds:['groups','bracket','r32','r16','qfsf','final','mytickets'],
     groupsAF:'Grupos A-F',groupsGL:'Grupos G-L',best3rd:'Mejores 3ros',
     matchResults:'RESULTADOS',advances:'avanza',
     thirdPlace:'TERCER LUGAR',finalMatch:'LA GRAN FINAL',worldChamp:'CAMPEÓN MUNDIAL 2026',
-    myGames:'TUS 7 PARTIDOS MARCADOS',winner:'Ganador',
-    engineTitle:'MOTOR OLIVOS',engineSub:'Simulador de Torneo Probabilístico',
-    engineDesc:'Ejecuta 10,000 simulaciones completas del torneo en segundos para calcular la probabilidad real de cada selección en cada etapa. Construido sobre rankings oficiales, forma reciente y la estructura oficial del torneo.',
+    engineTitle:'MOTOR OLIVOS',engineSub:'Simulador Probabilístico de Torneo',
+    engineDesc:'Ejecuta 10,000 simulaciones completas del torneo en segundos para calcular la probabilidad real de cada selección en cada etapa. Basado en Elo, forma reciente y la estructura oficial del torneo.',
     runEngine:'Ejecutar 10,000 Simulaciones',engineRunning:'Simulando',engineDone:'Simulación completada',
-    colTeam:'Selección',colGroup:'Grupo',colWinGroup:'Gana Grupo',colR32:'Diec.',colR16:'Octavos',colQF:'Cuartos',colSF:'Semis',colFinal:'Final',colWin:'🏆 Campeón',
-    sortBy:'Ordenar por',
+    byGroup:'Por Grupo',byStage:'Por Etapa',
+    colTeam:'Selección',colGroup:'Grupo',colWinGroup:'Gana Grupo',colR32:'Diec.',colR16:'Octavos',colQF:'Cuartos',colSF:'Semis',colFinal:'Final',colWin:'🏆',
+    sortBy:'Ordenar',
     whatifTitle:'¿QUÉ PASA SI?',
-    whatifDesc:'Ajusta los resultados de partidos futuros. Los resultados reales bloqueados no se pueden cambiar. Toca cualquier partido futuro para definir tu marcador. El bracket se recalcula al instante.',
-    whatifLocked:'🔒 Bloqueado — resultado real',whatifCustom:'Tu marcador',
-    whatifReset:'Restablecer Todo',whatifApply:'Aplicar',
-    liveNow:'EN VIVO AHORA',adminTitle:'PANEL DE ADMINISTRACIÓN',
-    adminConflicts:'Conflictos Pendientes',adminLock:'Bloquear',adminUnlock:'Desbloquear',
+    whatifDesc:'Ajusta resultados de partidos futuros. Los resultados reales bloqueados no se pueden cambiar. Toca cualquier partido para definir tu marcador.',
+    whatifLocked:'🔒 Resultado real',whatifCustom:'Tu marcador',
+    whatifReset:'Restablecer',whatifApply:'Aplicar',
+    myTicketsTitle:'MIS PARTIDOS',
+    myTicketsDesc:'Toca cualquier partido para marcarlo. Se guarda en tu dispositivo.',
+    myTicketsClear:'Limpiar todo',myTicketsCount:'partidos seleccionados',
+    liveNow:'EN VIVO',adminTitle:'PANEL ADMIN',
+    adminConflicts:'Conflictos',adminLock:'Bloquear',adminUnlock:'Desbloquear',
     adminOverride:'Corregir',adminSave:'Guardar',adminCancel:'Cancelar',
-    dataUpdated:'Actualizado',zoom:'ZOOM',
-    shareApp:'Comparte el Predictor',shareAppDesc:'Invita a tus amigos a predecir el campeón del mundo',
-    scanQR:'Escanea y abre en tu cel',
-    otherApps:'Otras Apps de Olivos',collectTitle:'Olivos Collect',
-    collectDesc:'El álbum digital oficial del Mundial 2026. Colecciona, intercambia y completa tu álbum con la comunidad Olivos.',
-    collectBtn:'Abrir Olivos Collect',
+    dataUpdated:'Act.',zoom:'ZOOM',
+    shareApp:'Comparte Olivos Oracle',shareAppSub:'Predice el campeón del mundo',
+    otherApps:'Olivos Collect',collectDesc:'El álbum digital del Mundial 2026. Colecciona e intercambia con otros fans.',
+    collectBtn:'Abrir Olivos Collect',scanQR:'Escanea el QR',
+    groupStage:'Fase de Grupos',roundOf32:'Dieciseisavos',roundOf16:'Octavos de Final',
+    qf:'Cuartos de Final',sf:'Semifinales',finalRound:'Gran Final',
   },
   en:{
-    appSub:'WORLD CUP 2026 · SIMULATOR',
-    champion:'Predicted Champion',rank:'Rank',
+    appSub:'WORLD CUP 2026',champion:'Champion',rank:'Rank',
     liveData:'Live Data',cached:'Cached',offline:'Offline',loading:'Loading',
     simLevel:'Simulation Level',
     levels:['','⭐ Most Likely','⭐⭐ Probable','⭐⭐⭐ Balanced','⭐⭐⭐⭐ Surprising','⭐⭐⭐⭐⭐ Chaos'],
-    levelDescs:['','Rankings dominate. Upsets very rare.','Better teams mostly win.','Realistic mix of results.','Major upsets common.','Anything goes.'],
+    levelDescs:['','Rankings dominate.','Better teams mostly win.','Realistic mix.','Major upsets common.','Anything goes.'],
     resim:'Resimulate',share:'Share',shared:'Copied!',
-    tabs:['👥 Groups','🏟️ Bracket','⚔️ R32','🔵 R16','🔥 QF/SF','🥇 Final','🟣 My Games','🧬 Olivos Engine','🔀 What-If'],
-    tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
-    groupsAF:'Groups A-F',groupsGL:'Groups G-L',best3rd:'Best 3rd Place',
+    tabs:['👥 Groups','🏟️ Bracket','⚔️ R32','🔵 R16','🔥 QF/SF','🥇 Final','🎟️ My Tickets'],
+    tabIds:['groups','bracket','r32','r16','qfsf','final','mytickets'],
+    groupsAF:'Groups A-F',groupsGL:'Groups G-L',best3rd:'Best 3rd',
     matchResults:'RESULTS',advances:'advances',
     thirdPlace:'THIRD PLACE',finalMatch:'THE FINAL',worldChamp:'WORLD CHAMPION 2026',
-    myGames:'YOUR 7 CIRCLED GAMES',winner:'Winner',
     engineTitle:'OLIVOS ENGINE',engineSub:'Probabilistic Tournament Simulator',
-    engineDesc:"Runs 10,000 complete tournament simulations in seconds to calculate each team's real probability of advancing at every stage. Built on official rankings, recent form, and the official tournament structure.",
-    runEngine:'Run 10,000 Simulations',engineRunning:'Simulating',engineDone:'Simulation complete',
-    colTeam:'Team',colGroup:'Group',colWinGroup:'Win Group',colR32:'R32',colR16:'R16',colQF:'QF',colSF:'SF',colFinal:'Final',colWin:'🏆 Champion',
-    sortBy:'Sort by',
-    whatifTitle:'WHAT-IF MODE',
-    whatifDesc:'Adjust future match outcomes. Real locked results cannot be changed. Tap any future match to set your own score. Bracket recalculates instantly.',
-    whatifLocked:'🔒 Locked — real result',whatifCustom:'Your score',
-    whatifReset:'Reset All',whatifApply:'Apply',
-    liveNow:'LIVE NOW',adminTitle:'ADMIN PANEL',
-    adminConflicts:'Pending Conflicts',adminLock:'Lock',adminUnlock:'Unlock',
+    engineDesc:"Runs 10,000 complete tournament simulations to calculate each team's real probability at every stage. Based on Elo ratings, recent form and official tournament structure.",
+    runEngine:'Run 10,000 Simulations',engineRunning:'Simulating',engineDone:'Complete',
+    byGroup:'By Group',byStage:'By Stage',
+    colTeam:'Team',colGroup:'Grp',colWinGroup:'Win Grp',colR32:'R32',colR16:'R16',colQF:'QF',colSF:'SF',colFinal:'Final',colWin:'🏆',
+    sortBy:'Sort',
+    whatifTitle:'WHAT-IF?',
+    whatifDesc:'Adjust future match outcomes. Real locked results cannot be changed.',
+    whatifLocked:'🔒 Real result',whatifCustom:'Your score',
+    whatifReset:'Reset',whatifApply:'Apply',
+    myTicketsTitle:'MY TICKETS',
+    myTicketsDesc:'Tap any match to mark it. Saved on your device.',
+    myTicketsClear:'Clear all',myTicketsCount:'matches selected',
+    liveNow:'LIVE',adminTitle:'ADMIN PANEL',
+    adminConflicts:'Conflicts',adminLock:'Lock',adminUnlock:'Unlock',
     adminOverride:'Override',adminSave:'Save',adminCancel:'Cancel',
-    dataUpdated:'Updated',zoom:'ZOOM',
-    shareApp:'Share the Predictor',shareAppDesc:'Invite your friends to predict the World Cup champion',
-    scanQR:'Scan to open on your phone',
-    otherApps:'Other Olivos Apps',collectTitle:'Olivos Collect',
-    collectDesc:'The official digital album for WC2026. Collect, trade and complete your album with the Olivos community.',
-    collectBtn:'Open Olivos Collect',
+    dataUpdated:'Upd.',zoom:'ZOOM',
+    shareApp:'Share Olivos Oracle',shareAppSub:'Predict the World Cup champion',
+    otherApps:'Olivos Collect',collectDesc:'The digital WC2026 album. Collect and trade with other fans.',
+    collectBtn:'Open Olivos Collect',scanQR:'Scan QR',
+    groupStage:'Group Stage',roundOf32:'Round of 32',roundOf16:'Round of 16',
+    qf:'Quarter-Finals',sf:'Semi-Finals',finalRound:'The Final',
   }
 };
 
-// ─── THEME ────────────────────────────────────────────────────
-const DARK={
-  bg:'#000000',surface:'#111111',card:'#181818',
-  border:'#2a2a2a',gold:'#72CB28',goldDim:'#2a5010',
-  red:'#e05555',green:'#72CB28',blue:'#4a9fd4',
-  text:'#e8e8e8',muted:'#777777',accent:'#72CB28',
-  headerBg:'#000000',
-  cardGold:'linear-gradient(135deg,#0d1a06,#162808)',
-  liveDot:'#ff4444',
-};
-const LIGHT={
-  bg:'#f0ede8',surface:'#ffffff',card:'#f8f6f2',
-  border:'#d8d4cc',gold:'#5aaa18',goldDim:'#b8d898',
-  red:'#c0392b',green:'#5aaa18',blue:'#2471a3',
-  text:'#1a1a1a',muted:'#666666',accent:'#5aaa18',
-  headerBg:'#ffffff',
-  cardGold:'linear-gradient(135deg,#f0f8e8,#e0f0d0)',
-  liveDot:'#e03333',
-};
+// ── THEME ─────────────────────────────────────────────────────
+const DARK={bg:'#000',surface:'#111',card:'#181818',border:'#2a2a2a',gold:'#72CB28',goldDim:'#2a5010',red:'#e05555',green:'#72CB28',blue:'#4a9fd4',text:'#e8e8e8',muted:'#777',accent:'#72CB28',cardGold:'linear-gradient(135deg,#0d1a06,#162808)',liveDot:'#ff4444',myRed:'#e03030',myRedDim:'#5a1010',myRedCard:'linear-gradient(135deg,#1a0606,#2a0a0a)'};
+const LIGHT={bg:'#f0ede8',surface:'#fff',card:'#f8f6f2',border:'#d8d4cc',gold:'#5aaa18',goldDim:'#b8d898',red:'#c0392b',green:'#5aaa18',blue:'#2471a3',text:'#1a1a1a',muted:'#666',accent:'#5aaa18',cardGold:'linear-gradient(135deg,#f0f8e8,#e0f0d0)',liveDot:'#e03333',myRed:'#c0392b',myRedDim:'#f8d7d0',myRedCard:'linear-gradient(135deg,#fff0ee,#ffe0dc)'};
 
-// ─── QR SVG for berwc26sim.vercel.app ─────────────────────────
-// Clean SVG QR — encodes the URL visually
-function AppQR({size=180,C}){
-  // QR pattern for https://berwc26sim.vercel.app
-  // Using a visually representative QR-style SVG
-  const s=size;
-  const cell=Math.floor(s/25);
-  // Finder patterns + data approximation
-  const finder=(x,y)=>{
-    const rects=[];
-    rects.push(<rect key="o" x={x*cell} y={y*cell} width={7*cell} height={7*cell} fill={C.text}/>);
-    rects.push(<rect key="i" x={(x+1)*cell} y={(y+1)*cell} width={5*cell} height={5*cell} fill={C.bg}/>);
-    rects.push(<rect key="c" x={(x+2)*cell} y={(y+2)*cell} width={3*cell} height={3*cell} fill={C.text}/>);
-    return rects;
-  };
-  // Data modules — manually placed to look like a real QR
-  const data=[
-    [0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],
-    [7,0],[7,1],[7,2],[7,3],[7,4],[7,5],[7,6],
-    [8,7],[9,7],[10,7],[11,7],[12,7],[13,7],[14,7],
-    [7,8],[7,9],[7,10],[7,11],[7,12],[7,13],[7,14],
-    [0,14],[1,14],[2,14],[3,14],[4,14],[5,14],[6,14],
-    [18,0],[19,0],[20,0],[21,0],[22,0],[23,0],[24,0],
-    [18,6],[19,6],[20,6],[21,6],[22,6],[23,6],[24,6],
-    [18,1],[18,2],[18,3],[18,4],[18,5],
-    [24,1],[24,2],[24,3],[24,4],[24,5],
-    [20,2],[21,2],[22,2],[20,3],[21,3],[22,3],[20,4],[21,4],[22,4],
-    [0,18],[1,18],[2,18],[3,18],[4,18],[5,18],[6,18],
-    [0,24],[1,24],[2,24],[3,24],[4,24],[5,24],[6,24],
-    [0,19],[0,20],[0,21],[0,22],[0,23],
-    [6,19],[6,20],[6,21],[6,22],[6,23],
-    [2,20],[3,20],[4,20],[2,21],[3,21],[4,21],[2,22],[3,22],[4,22],
-    [9,9],[11,9],[13,9],[15,9],[17,9],
-    [9,11],[10,11],[12,11],[14,11],[16,11],[18,11],
-    [9,13],[11,13],[13,13],[15,13],[17,13],
-    [9,15],[10,15],[12,15],[14,15],[16,15],
-    [9,17],[11,17],[13,17],[15,17],[17,17],
-    [10,9],[10,10],[11,10],[12,10],[13,10],[14,10],[14,9],
-    [16,9],[16,10],[17,10],[18,10],[19,10],[20,10],
-    [21,9],[22,9],[23,9],[21,10],[21,11],[22,11],[23,11],[24,11],
-    [19,12],[20,12],[21,12],[19,13],[21,13],[22,13],[23,13],
-    [10,13],[12,13],[14,13],[16,13],[18,13],
-    [8,14],[9,14],[10,14],[11,14],[12,14],
-    [8,15],[8,16],[9,16],[10,16],[11,16],[12,16],[13,16],
-    [14,16],[15,16],[16,16],[17,16],[18,16],[19,16],[20,16],
-    [21,16],[22,16],[23,16],[24,16],
-    [8,17],[8,18],[9,18],[10,18],[11,18],[12,18],
-    [13,18],[15,18],[17,18],[19,18],[21,18],[23,18],
-    [8,19],[9,19],[11,19],[13,19],[15,19],[17,19],[19,19],
-    [8,20],[10,20],[12,20],[14,20],[16,20],[18,20],[20,20],[22,20],[24,20],
-    [8,21],[9,21],[10,21],[12,21],[14,21],[16,21],[18,21],[20,21],
-    [8,22],[11,22],[13,22],[15,22],[17,22],[19,22],[21,22],[23,22],
-    [8,23],[9,23],[10,23],[11,23],[13,23],[15,23],[17,23],[19,23],[21,23],[23,23],
-    [8,24],[10,24],[12,24],[14,24],[16,24],[18,24],[20,24],[22,24],[24,24],
-  ];
-  return(
-    <svg width={s} height={s} viewBox={`0 0 ${25*cell} ${25*cell}`} xmlns="http://www.w3.org/2000/svg" style={{borderRadius:8,background:C.bg,padding:4}}>
-      {finder(0,0)}
-      {finder(18,0)}
-      {finder(0,18)}
-      {data.map(([x,y],i)=>(
-        <rect key={i} x={x*cell} y={y*cell} width={cell} height={cell} fill={C.text}/>
-      ))}
-      {/* Olivos mark in center */}
-      <circle cx={12.5*cell} cy={12.5*cell} r={1.8*cell} fill={C.bg}/>
-      <circle cx={12.5*cell} cy={12.5*cell} r={1.6*cell} fill="none" stroke={C.gold} strokeWidth={cell*0.35}/>
-      <line x1={12.5*cell} y1={11.2*cell} x2={12.5*cell} y2={13.8*cell} stroke={C.gold} strokeWidth={cell*0.28}/>
-    </svg>
-  );
+// ── DATA ──────────────────────────────────────────────────────
+const FIFA_RANK={Mexico:15,'South Africa':60,'Korea Republic':22,Czechia:43,Canada:30,'Bosnia & Herzegovina':66,Qatar:56,Switzerland:19,Brazil:7,Morocco:8,Haiti:83,Scotland:40,USA:16,Paraguay:38,Australia:27,Turkiye:24,Germany:10,Curacao:82,"Cote d'Ivoire":35,Ecuador:23,Netherlands:6,Japan:18,Sweden:41,Tunisia:44,Belgium:9,Egypt:29,'IR Iran':21,'New Zealand':85,Spain:1,'Cabo Verde':70,'Saudi Arabia':61,Uruguay:17,France:2,Senegal:149,Iraq:59,Norway:31,Argentina:3,Algeria:28,Austria:25,Jordan:64,Portugal:5,'Congo DR':48,Uzbekistan:50,Colombia:13,England:4,Croatia:11,Ghana:74,Panama:34};
+
+// Elo-based strength (France correctly above Spain)
+const ELO_BASE={France:2057,Argentina:2048,England:2001,Brazil:1994,Spain:1972,Portugal:1969,Netherlands:1965,Germany:1952,Morocco:1948,Belgium:1944,Uruguay:1934,Colombia:1921,Japan:1878,'Korea Republic':1830,Mexico:1853,USA:1856,Croatia:1862,Switzerland:1844,Australia:1817,Norway:1834,Austria:1837,Sweden:1832,Turkiye:1830,Ecuador:1805,'IR Iran':1840,"Cote d'Ivoire":1790,Egypt:1782,Algeria:1810,Tunisia:1770,Czechia:1820,Scotland:1790,Senegal:1799,Qatar:1730,'Saudi Arabia':1755,'Cabo Verde':1720,'South Africa':1700,Panama:1734,Ghana:1742,'Bosnia & Herzegovina':1760,Uzbekistan:1740,'Congo DR':1720,Colombia:1921,Jordan:1650,'New Zealand':1610,Haiti:1580,Iraq:1680,Curacao:1530,Paraguay:1800};
+const WC_HISTORY={Brazil:10,Germany:9,Argentina:9,France:8,Spain:7,England:6,Uruguay:5,Netherlands:4,Portugal:3,Croatia:3,Mexico:2,USA:1,Belgium:1,Sweden:1};
+
+function computeBaseStr(team){
+  const elo=ELO_BASE[team]||1600;
+  const rank=FIFA_RANK[team]||80;
+  const eloN=Math.max(20,Math.min(99,Math.round((elo-1400)/700*79+20)));
+  const rankN=Math.max(30,Math.round(95-(rank-1)*0.45));
+  const hist=Math.min(10,WC_HISTORY[team]||0)*10;
+  return Math.round(eloN*0.45+rankN*0.30+hist*0.15+50*0.10);
+}
+const BASE_STR={};
+Object.keys(FIFA_RANK).forEach(t=>{BASE_STR[t]=computeBaseStr(t);});
+
+// Mexico venue advantage
+const MEX_VENUES_FULL=new Set(['Ciudad de México','Guadalajara','Monterrey']);
+const MEX_VENUES_USA=new Set(['Los Ángeles','Dallas','Houston','Nueva York','Nueva Jersey','Kansas City','Boston','Atlanta','Seattle','Filadelfia','Miami','San Francisco','Vancouver','Toronto']);
+function getMexBonus(team,venue){
+  if(team!=='Mexico')return 0;
+  if(MEX_VENUES_FULL.has(venue))return 8;
+  if(MEX_VENUES_USA.has(venue))return 4;
+  return 2;
 }
 
-// ─── DATA ─────────────────────────────────────────────────────
-const INTL_RANK={
-  Mexico:15,"South Africa":60,"Korea Republic":22,Czechia:43,
-  Canada:30,"Bosnia & Herzegovina":66,Qatar:56,Switzerland:19,
-  Brazil:7,Morocco:8,Haiti:83,Scotland:40,
-  USA:16,Paraguay:38,Australia:27,"Turkiye":24,
-  Germany:10,"Curacao":82,"Cote d'Ivoire":35,Ecuador:23,
-  Netherlands:6,Japan:18,Sweden:41,Tunisia:44,
-  Belgium:9,Egypt:29,"IR Iran":21,"New Zealand":85,
-  Spain:1,"Cabo Verde":70,"Saudi Arabia":61,Uruguay:17,
-  France:2,Senegal:149,Iraq:59,Norway:31,
-  Argentina:3,Algeria:28,Austria:25,Jordan:64,
-  Portugal:5,"Congo DR":48,Uzbekistan:50,Colombia:13,
-  England:4,Croatia:11,Ghana:74,Panama:34,
+const GROUPS={A:["Mexico","South Africa","Korea Republic","Czechia"],B:["Canada","Bosnia & Herzegovina","Qatar","Switzerland"],C:["Brazil","Morocco","Haiti","Scotland"],D:["USA","Paraguay","Australia","Turkiye"],E:["Germany","Curacao","Cote d'Ivoire","Ecuador"],F:["Netherlands","Japan","Sweden","Tunisia"],G:["Belgium","Egypt","IR Iran","New Zealand"],H:["Spain","Cabo Verde","Saudi Arabia","Uruguay"],I:["France","Senegal","Iraq","Norway"],J:["Argentina","Algeria","Austria","Jordan"],K:["Portugal","Congo DR","Uzbekistan","Colombia"],L:["England","Croatia","Ghana","Panama"]};
+const FLAGS={Mexico:"🇲🇽","South Africa":"🇿🇦","Korea Republic":"🇰🇷",Czechia:"🇨🇿",Canada:"🇨🇦","Bosnia & Herzegovina":"🇧🇦",Qatar:"🇶🇦",Switzerland:"🇨🇭",Brazil:"🇧🇷",Morocco:"🇲🇦",Haiti:"🇭🇹",Scotland:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",USA:"🇺🇸",Paraguay:"🇵🇾",Australia:"🇦🇺",Turkiye:"🇹🇷",Germany:"🇩🇪",Curacao:"🇨🇼","Cote d'Ivoire":"🇨🇮",Ecuador:"🇪🇨",Netherlands:"🇳🇱",Japan:"🇯🇵",Sweden:"🇸🇪",Tunisia:"🇹🇳",Belgium:"🇧🇪",Egypt:"🇪🇬","IR Iran":"🇮🇷","New Zealand":"🇳🇿",Spain:"🇪🇸","Cabo Verde":"🇨🇻","Saudi Arabia":"🇸🇦",Uruguay:"🇺🇾",France:"🇫🇷",Senegal:"🇸🇳",Iraq:"🇮🇶",Norway:"🇳🇴",Argentina:"🇦🇷",Algeria:"🇩🇿",Austria:"🇦🇹",Jordan:"🇯🇴",Portugal:"🇵🇹","Congo DR":"🇨🇩",Uzbekistan:"🇺🇿",Colombia:"🇨🇴",England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦"};
+const GROUP_VENUES={A:"Ciudad de México / Guadalajara",B:"Toronto / San Francisco",C:"Boston / Nueva York",D:"Los Ángeles / San Francisco",E:"Houston / Kansas City",F:"Seattle / Vancouver",G:"Atlanta / Miami",H:"Houston / Kansas City",I:"Boston / Kansas City",J:"Dallas / Miami",K:"Filadelfia / Toronto",L:"Boston / Atlanta"};
+const KO_VENUES={M73:"Los Ángeles",M74:"Boston",M75:"Guadalajara",M76:"Houston",M77:"Nueva Jersey",M78:"Dallas",M79:"Ciudad de México",M80:"Atlanta",M81:"San Francisco",M82:"Seattle",M83:"Toronto",M84:"Los Ángeles",M85:"Vancouver",M86:"Miami",M87:"Kansas City",M88:"Dallas",M89:"Houston",M90:"Filadelfia",M91:"Nueva Jersey",M92:"Ciudad de México",M93:"Seattle",M94:"Dallas",M95:"Atlanta",M96:"Vancouver",M97:"Boston",M98:"Seattle",M99:"Nueva Jersey",M100:"Dallas",M101:"Dallas",M102:"Atlanta",M103:"Miami",M104:"East Rutherford NJ"};
+
+// Full schedule with dates
+const SCHEDULE={
+  // Group Stage
+  M1:{home:"Mexico",away:"South Africa",venue:"Ciudad de México",date:"Jun 11",round:"Grupos",group:"A"},
+  M2:{home:"Korea Republic",away:"Czechia",venue:"Guadalajara",date:"Jun 11",round:"Grupos",group:"A"},
+  M3:{home:"Canada",away:"Bosnia & Herzegovina",venue:"Toronto",date:"Jun 12",round:"Grupos",group:"B"},
+  M4:{home:"Qatar",away:"Switzerland",venue:"San Francisco",date:"Jun 12",round:"Grupos",group:"B"},
+  M5:{home:"Brazil",away:"Morocco",venue:"Nueva York",date:"Jun 13",round:"Grupos",group:"C"},
+  M6:{home:"Haiti",away:"Scotland",venue:"Boston",date:"Jun 13",round:"Grupos",group:"C"},
+  M7:{home:"USA",away:"Paraguay",venue:"Los Ángeles",date:"Jun 14",round:"Grupos",group:"D"},
+  M8:{home:"Australia",away:"Turkiye",venue:"San Francisco",date:"Jun 14",round:"Grupos",group:"D"},
+  M9:{home:"Germany",away:"Curacao",venue:"Houston",date:"Jun 15",round:"Grupos",group:"E"},
+  M10:{home:"Cote d'Ivoire",away:"Ecuador",venue:"Kansas City",date:"Jun 15",round:"Grupos",group:"E"},
+  M11:{home:"Netherlands",away:"Japan",venue:"Seattle",date:"Jun 16",round:"Grupos",group:"F"},
+  M12:{home:"Sweden",away:"Tunisia",venue:"Vancouver",date:"Jun 16",round:"Grupos",group:"F"},
+  M13:{home:"Belgium",away:"Egypt",venue:"Atlanta",date:"Jun 17",round:"Grupos",group:"G"},
+  M14:{home:"IR Iran",away:"New Zealand",venue:"Miami",date:"Jun 17",round:"Grupos",group:"G"},
+  M15:{home:"Spain",away:"Cabo Verde",venue:"Houston",date:"Jun 18",round:"Grupos",group:"H"},
+  M16:{home:"Saudi Arabia",away:"Uruguay",venue:"Kansas City",date:"Jun 18",round:"Grupos",group:"H"},
+  M17:{home:"France",away:"Senegal",venue:"Boston",date:"Jun 19",round:"Grupos",group:"I"},
+  M18:{home:"Iraq",away:"Norway",venue:"Kansas City",date:"Jun 19",round:"Grupos",group:"I"},
+  M19:{home:"Argentina",away:"Algeria",venue:"Dallas",date:"Jun 20",round:"Grupos",group:"J"},
+  M20:{home:"Austria",away:"Jordan",venue:"Miami",date:"Jun 20",round:"Grupos",group:"J"},
+  M21:{home:"Portugal",away:"Congo DR",venue:"Filadelfia",date:"Jun 21",round:"Grupos",group:"K"},
+  M22:{home:"Uzbekistan",away:"Colombia",venue:"Toronto",date:"Jun 21",round:"Grupos",group:"K"},
+  M23:{home:"England",away:"Croatia",venue:"Boston",date:"Jun 22",round:"Grupos",group:"L"},
+  M24:{home:"Ghana",away:"Panama",venue:"Atlanta",date:"Jun 22",round:"Grupos",group:"L"},
+  M25:{home:"South Africa",away:"Korea Republic",venue:"Guadalajara",date:"Jun 23",round:"Grupos",group:"A"},
+  M26:{home:"Czechia",away:"Mexico",venue:"Ciudad de México",date:"Jun 23",round:"Grupos",group:"A"},
+  M27:{home:"Bosnia & Herzegovina",away:"Qatar",venue:"San Francisco",date:"Jun 24",round:"Grupos",group:"B"},
+  M28:{home:"Switzerland",away:"Canada",venue:"Vancouver",date:"Jun 24",round:"Grupos",group:"B"},
+  M29:{home:"Morocco",away:"Haiti",venue:"Nueva York",date:"Jun 25",round:"Grupos",group:"C"},
+  M30:{home:"Scotland",away:"Brazil",venue:"Boston",date:"Jun 25",round:"Grupos",group:"C"},
+  M31:{home:"Paraguay",away:"Australia",venue:"Seattle",date:"Jun 26",round:"Grupos",group:"D"},
+  M32:{home:"Turkiye",away:"USA",venue:"Los Ángeles",date:"Jun 26",round:"Grupos",group:"D"},
+  M33:{home:"Curacao",away:"Cote d'Ivoire",venue:"Houston",date:"Jun 26",round:"Grupos",group:"E"},
+  M34:{home:"Ecuador",away:"Germany",venue:"Dallas",date:"Jun 26",round:"Grupos",group:"E"},
+  M35:{home:"Japan",away:"Sweden",venue:"Seattle",date:"Jun 27",round:"Grupos",group:"F"},
+  M36:{home:"Tunisia",away:"Netherlands",venue:"Kansas City",date:"Jun 27",round:"Grupos",group:"F"},
+  M37:{home:"Egypt",away:"IR Iran",venue:"Atlanta",date:"Jun 27",round:"Grupos",group:"G"},
+  M38:{home:"New Zealand",away:"Belgium",venue:"Miami",date:"Jun 27",round:"Grupos",group:"G"},
+  M39:{home:"Cabo Verde",away:"Saudi Arabia",venue:"Houston",date:"Jun 28",round:"Grupos",group:"H"},
+  M40:{home:"Uruguay",away:"Spain",venue:"Kansas City",date:"Jun 28",round:"Grupos",group:"H"},
+  M41:{home:"Senegal",away:"Iraq",venue:"Boston",date:"Jun 28",round:"Grupos",group:"I"},
+  M42:{home:"Norway",away:"France",venue:"Kansas City",date:"Jun 28",round:"Grupos",group:"I"},
+  M43:{home:"Algeria",away:"Austria",venue:"Dallas",date:"Jun 29",round:"Grupos",group:"J"},
+  M44:{home:"Jordan",away:"Argentina",venue:"Miami",date:"Jun 29",round:"Grupos",group:"J"},
+  M45:{home:"Congo DR",away:"Uzbekistan",venue:"Filadelfia",date:"Jun 29",round:"Grupos",group:"K"},
+  M46:{home:"Colombia",away:"Portugal",venue:"Toronto",date:"Jun 29",round:"Grupos",group:"K"},
+  M47:{home:"Croatia",away:"Ghana",venue:"Atlanta",date:"Jun 30",round:"Grupos",group:"L"},
+  M48:{home:"Panama",away:"England",venue:"Boston",date:"Jun 30",round:"Grupos",group:"L"},
+  // R32
+  M73:{venue:"Los Ángeles",date:"Jun 28",round:"Dieciseisavos"},M74:{venue:"Boston",date:"Jun 29",round:"Dieciseisavos"},
+  M75:{venue:"Guadalajara",date:"Jun 29",round:"Dieciseisavos"},M76:{venue:"Houston",date:"Jun 30",round:"Dieciseisavos"},
+  M77:{venue:"Nueva Jersey",date:"Jun 30",round:"Dieciseisavos"},M78:{venue:"Dallas",date:"Jul 1",round:"Dieciseisavos"},
+  M79:{venue:"Ciudad de México",date:"Jul 1",round:"Dieciseisavos"},M80:{venue:"Atlanta",date:"Jul 2",round:"Dieciseisavos"},
+  M81:{venue:"San Francisco",date:"Jul 2",round:"Dieciseisavos"},M82:{venue:"Seattle",date:"Jul 3",round:"Dieciseisavos"},
+  M83:{venue:"Toronto",date:"Jul 3",round:"Dieciseisavos"},M84:{venue:"Los Ángeles",date:"Jul 3",round:"Dieciseisavos"},
+  M85:{venue:"Vancouver",date:"Jul 3",round:"Dieciseisavos"},M86:{venue:"Miami",date:"Jul 4",round:"Dieciseisavos"},
+  M87:{venue:"Kansas City",date:"Jul 4",round:"Dieciseisavos"},M88:{venue:"Dallas",date:"Jul 4",round:"Dieciseisavos"},
+  // R16
+  M89:{venue:"Houston",date:"Jul 5",round:"Octavos"},M90:{venue:"Filadelfia",date:"Jul 5",round:"Octavos"},
+  M91:{venue:"Nueva Jersey",date:"Jul 6",round:"Octavos"},M92:{venue:"Ciudad de México",date:"Jul 6",round:"Octavos"},
+  M93:{venue:"Seattle",date:"Jul 7",round:"Octavos"},M94:{venue:"Dallas",date:"Jul 7",round:"Octavos"},
+  M95:{venue:"Atlanta",date:"Jul 7",round:"Octavos"},M96:{venue:"Vancouver",date:"Jul 8",round:"Octavos"},
+  // QF
+  M97:{venue:"Boston",date:"Jul 9",round:"Cuartos"},M98:{venue:"Seattle",date:"Jul 9",round:"Cuartos"},
+  M99:{venue:"Nueva Jersey",date:"Jul 10",round:"Cuartos"},M100:{venue:"Dallas",date:"Jul 10",round:"Cuartos"},
+  // SF
+  M101:{venue:"Dallas",date:"Jul 14",round:"Semis"},M102:{venue:"Atlanta",date:"Jul 15",round:"Semis"},
+  // Finals
+  M103:{venue:"Miami",date:"Jul 18",round:"Tercer Lugar"},M104:{venue:"East Rutherford NJ",date:"Jul 19",round:"Gran Final"},
 };
-const GROUPS={
-  A:["Mexico","South Africa","Korea Republic","Czechia"],
-  B:["Canada","Bosnia & Herzegovina","Qatar","Switzerland"],
-  C:["Brazil","Morocco","Haiti","Scotland"],
-  D:["USA","Paraguay","Australia","Turkiye"],
-  E:["Germany","Curacao","Cote d'Ivoire","Ecuador"],
-  F:["Netherlands","Japan","Sweden","Tunisia"],
-  G:["Belgium","Egypt","IR Iran","New Zealand"],
-  H:["Spain","Cabo Verde","Saudi Arabia","Uruguay"],
-  I:["France","Senegal","Iraq","Norway"],
-  J:["Argentina","Algeria","Austria","Jordan"],
-  K:["Portugal","Congo DR","Uzbekistan","Colombia"],
-  L:["England","Croatia","Ghana","Panama"],
-};
-const FLAGS={
-  Mexico:"🇲🇽","South Africa":"🇿🇦","Korea Republic":"🇰🇷",Czechia:"🇨🇿",
-  Canada:"🇨🇦","Bosnia & Herzegovina":"🇧🇦",Qatar:"🇶🇦",Switzerland:"🇨🇭",
-  Brazil:"🇧🇷",Morocco:"🇲🇦",Haiti:"🇭🇹",Scotland:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  USA:"🇺🇸",Paraguay:"🇵🇾",Australia:"🇦🇺","Turkiye":"🇹🇷",
-  Germany:"🇩🇪","Curacao":"🇨🇼","Cote d'Ivoire":"🇨🇮",Ecuador:"🇪🇨",
-  Netherlands:"🇳🇱",Japan:"🇯🇵",Sweden:"🇸🇪",Tunisia:"🇹🇳",
-  Belgium:"🇧🇪",Egypt:"🇪🇬","IR Iran":"🇮🇷","New Zealand":"🇳🇿",
-  Spain:"🇪🇸","Cabo Verde":"🇨🇻","Saudi Arabia":"🇸🇦",Uruguay:"🇺🇾",
-  France:"🇫🇷",Senegal:"🇸🇳",Iraq:"🇮🇶",Norway:"🇳🇴",
-  Argentina:"🇦🇷",Algeria:"🇩🇿",Austria:"🇦🇹",Jordan:"🇯🇴",
-  Portugal:"🇵🇹","Congo DR":"🇨🇩",Uzbekistan:"🇺🇿",Colombia:"🇨🇴",
-  England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦",
-};
-const GROUP_VENUES={
-  A:"Ciudad de México / Guadalajara",B:"Toronto / San Francisco",
-  C:"Boston / Nueva York",D:"Los Ángeles / San Francisco",
-  E:"Houston / Kansas City",F:"Seattle / Vancouver",
-  G:"Atlanta / Miami",H:"Houston / Kansas City",
-  I:"Boston / Kansas City",J:"Dallas / Miami",
-  K:"Filadelfia / Toronto",L:"Boston / Atlanta",
-};
-const KO_VENUES={
-  M73:"Los Ángeles",M74:"Boston",M75:"Guadalajara",M76:"Houston",
-  M77:"Nueva Jersey",M78:"Dallas",M79:"Ciudad de México",M80:"Atlanta",
-  M81:"San Francisco",M82:"Seattle",M83:"Toronto",M84:"Los Ángeles",
-  M85:"Vancouver",M86:"Miami",M87:"Kansas City",M88:"Dallas",
-  M89:"Houston",M90:"Filadelfia",M91:"Nueva Jersey",M92:"Ciudad de México",
-  M93:"Seattle",M94:"Dallas",M95:"Atlanta",M96:"Vancouver",
-  M97:"Boston",M98:"Seattle",M99:"Nueva Jersey",M100:"Dallas",
-  M101:"Dallas",M102:"Atlanta",M103:"Miami",M104:"East Rutherford NJ",
-};
-const COMBOS={
-  "EFGHIJKL":"E,J,I,F,H,G,L,K","DFGHIJKL":"H,G,I,D,J,F,L,K","DEGHIJKL":"E,J,I,D,H,G,L,K",
-  "DEFHIJKL":"E,J,I,D,H,F,L,K","DEFGIJKL":"E,G,I,D,J,F,L,K","DEFGHJKL":"E,G,J,D,H,F,L,K",
-  "DEFGHIKL":"E,G,I,D,H,F,L,K","DEFGHIJL":"E,G,J,D,H,F,L,I","DEFGHIJK":"E,G,J,D,H,F,I,K",
-  "CFGHIJKL":"H,G,I,C,J,F,L,K","CEGHIJKL":"E,J,I,C,H,G,L,K","CEFHIJKL":"E,J,I,C,H,F,L,K",
-  "CEFGIJKL":"E,G,I,C,J,F,L,K","CEFGHJKL":"E,G,J,C,H,F,L,K","CEFGHIKL":"E,G,I,C,H,F,L,K",
-  "CEFGHIJL":"E,G,J,C,H,F,L,I","CEFGHIJK":"E,G,J,C,H,F,I,K","CDGHIJKL":"H,G,I,C,J,D,L,K",
-  "CDFHIJKL":"C,J,I,D,H,F,L,K","CDFGIJKL":"C,G,I,D,J,F,L,K","CDFGHJKL":"C,G,J,D,H,F,L,K",
-  "CDFGHIKL":"C,G,I,D,H,F,L,K","CDFGHIJL":"C,G,J,D,H,F,L,I","CDFGHIJK":"C,G,J,D,H,F,I,K",
-  "CDEHIJKL":"E,J,I,C,H,D,L,K","CDEGIJKL":"E,G,I,C,J,D,L,K","CDEGHJKL":"E,G,J,C,H,D,L,K",
-  "CDEGHIKL":"E,G,I,C,H,D,L,K","CDEGHIJL":"E,G,J,C,H,D,L,I","CDEGHIJK":"E,G,J,C,H,D,I,K",
-  "CDEFIJKL":"C,J,E,D,I,F,L,K","CDEFHJKL":"C,J,E,D,H,F,L,K","CDEFHIKL":"C,E,I,D,H,F,L,K",
-  "CDEFHIJL":"C,J,E,D,H,F,L,I","CDEFHIJK":"C,J,E,D,H,F,I,K","CDEFGJKL":"C,G,E,D,J,F,L,K",
-  "CDEFGIKL":"C,G,E,D,I,F,L,K","CDEFGIJL":"C,G,E,D,J,F,L,I","CDEFGIJK":"C,G,E,D,J,F,I,K",
-  "CDEFGHKL":"C,G,E,D,H,F,L,K","CDEFGHJL":"C,G,J,D,H,F,L,E","CDEFGHJK":"C,G,J,D,H,F,E,K",
-  "CDEFGHIL":"C,G,E,D,H,F,L,I","CDEFGHIK":"C,G,E,D,H,F,I,K","CDEFGHIJ":"C,G,J,D,H,F,E,I",
-  "BFGHIJKL":"H,J,B,F,I,G,L,K","BEGHIJKL":"E,J,I,B,H,G,L,K","BEFHIJKL":"E,J,B,F,I,H,L,K",
-  "BEFGIJKL":"E,J,B,F,I,G,L,K","BEFGHJKL":"E,J,B,F,H,G,L,K","BEFGHIKL":"E,G,B,F,I,H,L,K",
-  "BEFGHIJL":"E,J,B,F,H,G,L,I","BEFGHIJK":"E,J,B,F,H,G,I,K","BDGHIJKL":"H,J,B,D,I,G,L,K",
-  "BDFHIJKL":"H,J,B,D,I,F,L,K","BDFGIJKL":"I,G,B,D,J,F,L,K","BDFGHJKL":"H,G,B,D,J,F,L,K",
-  "BDFGHIKL":"H,G,B,D,I,F,L,K","BDFGHIJL":"H,G,B,D,J,F,L,I","BDFGHIJK":"H,G,B,D,J,F,I,K",
-  "BDEHIJKL":"E,J,B,D,I,H,L,K","BDEGIJKL":"E,J,B,D,I,G,L,K","BDEGHJKL":"E,J,B,D,H,G,L,K",
-  "BDEGHIKL":"E,G,B,D,I,H,L,K","BDEGHIJL":"E,J,B,D,H,G,L,I","BDEGHIJK":"E,J,B,D,H,G,I,K",
-  "BDEFIJKL":"E,J,B,D,I,F,L,K","BDEFHJKL":"E,J,B,D,H,F,L,K","BDEFHIKL":"E,I,B,D,H,F,L,K",
-  "BDEFHIJL":"E,J,B,D,H,F,L,I","BDEFHIJK":"E,J,B,D,H,F,I,K","BDEFGJKL":"E,G,B,D,J,F,L,K",
-  "BDEFGIKL":"E,G,B,D,I,F,L,K","BDEFGIJL":"E,G,B,D,J,F,L,I","BDEFGIJK":"E,G,B,D,J,F,I,K",
-  "BDEFGHKL":"E,G,B,D,H,F,L,K","BDEFGHJL":"H,G,B,D,J,F,L,E","BDEFGHJK":"H,G,B,D,J,F,E,K",
-  "BDEFGHIL":"H,G,B,D,J,F,L,I","BDEFGHIK":"E,G,B,D,H,F,I,K","BDEFGHIJ":"E,G,B,D,H,F,I,J",
-};
-function parseCombo(raw){const p=raw.split(",");return{m79:p[0],m85:p[1],m81:p[2],m74:p[3],m82:p[4],m77:p[5],m87:p[6],m80:p[7]};}
-function rankToStr(r){return Math.max(20,Math.round(99-(r-1)*0.62));}
-const BASE_STR={};
-Object.entries(INTL_RANK).forEach(([t,r])=>{BASE_STR[t]=rankToStr(r);});
+
+const COMBOS={"EFGHIJKL":"E,J,I,F,H,G,L,K","DFGHIJKL":"H,G,I,D,J,F,L,K","DEGHIJKL":"E,J,I,D,H,G,L,K","DEFHIJKL":"E,J,I,D,H,F,L,K","DEFGIJKL":"E,G,I,D,J,F,L,K","DEFGHJKL":"E,G,J,D,H,F,L,K","DEFGHIKL":"E,G,I,D,H,F,L,K","DEFGHIJL":"E,G,J,D,H,F,L,I","DEFGHIJK":"E,G,J,D,H,F,I,K","CFGHIJKL":"H,G,I,C,J,F,L,K","CEGHIJKL":"E,J,I,C,H,G,L,K","CEFHIJKL":"E,J,I,C,H,F,L,K","CEFGIJKL":"E,G,I,C,J,F,L,K","CEFGHJKL":"E,G,J,C,H,F,L,K","CEFGHIKL":"E,G,I,C,H,F,L,K","CEFGHIJL":"E,G,J,C,H,F,L,I","CEFGHIJK":"E,G,J,C,H,F,I,K","CDGHIJKL":"H,G,I,C,J,D,L,K","CDFHIJKL":"C,J,I,D,H,F,L,K","CDFGIJKL":"C,G,I,D,J,F,L,K","CDFGHJKL":"C,G,J,D,H,F,L,K","CDFGHIKL":"C,G,I,D,H,F,L,K","CDFGHIJL":"C,G,J,D,H,F,L,I","CDFGHIJK":"C,G,J,D,H,F,I,K","CDEHIJKL":"E,J,I,C,H,D,L,K","CDEGIJKL":"E,G,I,C,J,D,L,K","CDEGHJKL":"E,G,J,C,H,D,L,K","CDEGHIKL":"E,G,I,C,H,D,L,K","CDEGHIJL":"E,G,J,C,H,D,L,I","CDEGHIJK":"E,G,J,C,H,D,I,K","CDEFIJKL":"C,J,E,D,I,F,L,K","CDEFHJKL":"C,J,E,D,H,F,L,K","CDEFHIKL":"C,E,I,D,H,F,L,K","CDEFHIJL":"C,J,E,D,H,F,L,I","CDEFHIJK":"C,J,E,D,H,F,I,K","CDEFGJKL":"C,G,E,D,J,F,L,K","CDEFGIKL":"C,G,E,D,I,F,L,K","CDEFGIJL":"C,G,E,D,J,F,L,I","CDEFGIJK":"C,G,E,D,J,F,I,K","CDEFGHKL":"C,G,E,D,H,F,L,K","CDEFGHJL":"C,G,J,D,H,F,L,E","CDEFGHJK":"C,G,J,D,H,F,E,K","CDEFGHIL":"C,G,E,D,H,F,L,I","CDEFGHIK":"C,G,E,D,H,F,I,K","CDEFGHIJ":"C,G,J,D,H,F,E,I","BFGHIJKL":"H,J,B,F,I,G,L,K","BEGHIJKL":"E,J,I,B,H,G,L,K","BEFHIJKL":"E,J,B,F,I,H,L,K","BEFGIJKL":"E,J,B,F,I,G,L,K","BEFGHJKL":"E,J,B,F,H,G,L,K","BEFGHIKL":"E,G,B,F,I,H,L,K","BEFGHIJL":"E,J,B,F,H,G,L,I","BEFGHIJK":"E,J,B,F,H,G,I,K","BDGHIJKL":"H,J,B,D,I,G,L,K","BDFHIJKL":"H,J,B,D,I,F,L,K","BDFGIJKL":"I,G,B,D,J,F,L,K","BDFGHJKL":"H,G,B,D,J,F,L,K","BDFGHIKL":"H,G,B,D,I,F,L,K","BDFGHIJL":"H,G,B,D,J,F,L,I","BDFGHIJK":"H,G,B,D,J,F,I,K","BDEHIJKL":"E,J,B,D,I,H,L,K","BDEGIJKL":"E,J,B,D,I,G,L,K","BDEGHJKL":"E,J,B,D,H,G,L,K","BDEGHIKL":"E,G,B,D,I,H,L,K","BDEGHIJL":"E,J,B,D,H,G,L,I","BDEGHIJK":"E,J,B,D,H,G,I,K","BDEFIJKL":"E,J,B,D,I,F,L,K","BDEFHJKL":"E,J,B,D,H,F,L,K","BDEFHIKL":"E,I,B,D,H,F,L,K","BDEFHIJL":"E,J,B,D,H,F,L,I","BDEFHIJK":"E,J,B,D,H,F,I,K","BDEFGJKL":"E,G,B,D,J,F,L,K","BDEFGIKL":"E,G,B,D,I,F,L,K","BDEFGIJL":"E,G,B,D,J,F,L,I","BDEFGIJK":"E,G,B,D,J,F,I,K","BDEFGHKL":"E,G,B,D,H,F,L,K","BDEFGHJL":"H,G,B,D,J,F,L,E","BDEFGHJK":"H,G,B,D,J,F,E,K","BDEFGHIL":"H,G,B,D,J,F,L,I","BDEFGHIK":"E,G,B,D,H,F,I,K","BDEFGHIJ":"E,G,B,D,H,F,I,J"};
+function parseCombo(r){const p=r.split(",");return{m79:p[0],m85:p[1],m81:p[2],m74:p[3],m82:p[4],m77:p[5],m87:p[6],m80:p[7]};}
 const fl=t=>FLAGS[t]||"🏳️";
-const LEVELS=[
-  {id:1,variance:4,bias:0.85},{id:2,variance:10,bias:0.72},
-  {id:3,variance:18,bias:0.60},{id:4,variance:28,bias:0.52},{id:5,variance:42,bias:0.50},
-];
+const LEVELS=[{id:1,variance:4,bias:0.85},{id:2,variance:10,bias:0.72},{id:3,variance:18,bias:0.60},{id:4,variance:28,bias:0.52},{id:5,variance:42,bias:0.50}];
 const LEVEL_COLORS=["","#72CB28","#8BC34A","#4a9fd4","#FF9800","#f44336"];
 const CIRCLED_IDS=new Set(["M79","M84","M92","M95","M97","M102","M104"]);
 
-// ─── SIM ENGINE ───────────────────────────────────────────────
-function getStr(t,ls){const b=BASE_STR[t]||45;if(!ls||!ls[t])return b;return Math.max(10,Math.min(99,b+(ls[t].form_score||0)));}
-function simScore(tA,tB,v,ls){
-  const sa=getStr(tA,ls),sb=getStr(tB,ls),diff=sa-sb;
+// ── SIM ENGINE ────────────────────────────────────────────────
+function getStr(t,ls,venue){
+  const b=BASE_STR[t]||45;
+  const form=ls&&ls[t]?ls[t].form_score||0:0;
+  const mex=getMexBonus(t,venue||'');
+  return Math.max(10,Math.min(99,b+form+mex));
+}
+function simScore(tA,tB,v,ls,venue){
+  const sa=getStr(tA,ls,venue),sb=getStr(tB,ls,venue),diff=sa-sb;
   const n=()=>(Math.random()+Math.random()+Math.random()-1.5)*v*0.07;
   return[Math.max(0,Math.round(1.2+diff*0.035+n())),Math.max(0,Math.round(1.2-diff*0.035+n()))];
 }
-function simKO(tA,tB,v,bias,ls){
+function simKO(tA,tB,v,bias,ls,venue){
   if(!tA||!tB||tA===tB)return{a:tA||"TBD",b:tB||"TBD",sa:0,sb:0,w:tA||tB};
-  let[sa,sb]=simScore(tA,tB,v,ls);
-  if(sa===sb){const sA=getStr(tA,ls),sB=getStr(tB,ls),p=bias*(sA/(sA+sB))+(1-bias)*0.5;if(Math.random()<p)sa++;else sb++;}
+  let[sa,sb]=simScore(tA,tB,v,ls,venue);
+  if(sa===sb){const sA=getStr(tA,ls,venue),sB=getStr(tB,ls,venue),p=bias*(sA/(sA+sB))+(1-bias)*0.5;if(Math.random()<p)sa++;else sb++;}
   return{a:tA,b:tB,sa,sb,w:sa>sb?tA:tB};
 }
 function simGroup(teams,v,bias,locked,ls,whatif){
   const pts={},gf={},ga={},wins={},draws={},losses={};
   teams.forEach(t=>{pts[t]=0;gf[t]=0;ga[t]=0;wins[t]=0;draws[t]=0;losses[t]=0;});
   const matches=[];
-  for(let i=0;i<teams.length;i++){
-    for(let j=i+1;j<teams.length;j++){
-      const ta=teams[i],tb=teams[j];
-      let sa,sb,isLocked=false,isWhatif=false;
-      const k=`${ta}|${tb}`,kr=`${tb}|${ta}`;
-      if(locked&&locked[k]){sa=locked[k].home;sb=locked[k].away;isLocked=true;}
-      else if(locked&&locked[kr]){sb=locked[kr].home;sa=locked[kr].away;isLocked=true;}
-      else if(whatif&&whatif[k]){sa=whatif[k].home;sb=whatif[k].away;isWhatif=true;}
-      else if(whatif&&whatif[kr]){sb=whatif[kr].home;sa=whatif[kr].away;isWhatif=true;}
-      else{[sa,sb]=simScore(ta,tb,v,ls);}
-      gf[ta]+=sa;ga[ta]+=sb;gf[tb]+=sb;ga[tb]+=sa;
-      if(sa>sb){pts[ta]+=3;wins[ta]++;losses[tb]++;}
-      else if(sb>sa){pts[tb]+=3;wins[tb]++;losses[ta]++;}
-      else{pts[ta]++;pts[tb]++;draws[ta]++;draws[tb]++;}
-      matches.push({a:ta,b:tb,sa,sb,locked:isLocked,whatif:isWhatif});
-    }
-  }
+  for(let i=0;i<teams.length;i++){for(let j=i+1;j<teams.length;j++){
+    const ta=teams[i],tb=teams[j];
+    let sa,sb,isLocked=false,isWhatif=false;
+    const k=`${ta}|${tb}`,kr=`${tb}|${ta}`;
+    if(locked&&locked[k]){sa=locked[k].home;sb=locked[k].away;isLocked=true;}
+    else if(locked&&locked[kr]){sb=locked[kr].home;sa=locked[kr].away;isLocked=true;}
+    else if(whatif&&whatif[k]){sa=whatif[k].home;sb=whatif[k].away;isWhatif=true;}
+    else if(whatif&&whatif[kr]){sb=whatif[kr].home;sa=whatif[kr].away;isWhatif=true;}
+    else{[sa,sb]=simScore(ta,tb,v,ls,'');}
+    gf[ta]+=sa;ga[ta]+=sb;gf[tb]+=sb;ga[tb]+=sa;
+    if(sa>sb){pts[ta]+=3;wins[ta]++;losses[tb]++;}else if(sb>sa){pts[tb]+=3;wins[tb]++;losses[ta]++;}else{pts[ta]++;pts[tb]++;draws[ta]++;draws[tb]++;}
+    matches.push({a:ta,b:tb,sa,sb,locked:isLocked,whatif:isWhatif});
+  }}
   const gd=t=>gf[t]-ga[t];
-  const sorted=[...teams].sort((tx,ty)=>(pts[ty]-pts[tx])||(gd(ty)-gd(tx))||(gf[ty]-gf[tx])||((getStr(ty,ls))-(getStr(tx,ls))));
+  const sorted=[...teams].sort((tx,ty)=>(pts[ty]-pts[tx])||(gd(ty)-gd(tx))||(gf[ty]-gf[tx])||((getStr(ty,ls,''))-(getStr(tx,ls,''))));
   return{p1:sorted[0],p2:sorted[1],p3:sorted[2],p4:sorted[3],pts,gf,ga,wins,draws,losses,matches};
 }
 function runSim(levelId,locked,ls,whatif){
@@ -396,8 +306,7 @@ function runSim(levelId,locked,ls,whatif){
   const{variance:v,bias}=lv;
   const gr={};
   Object.entries(GROUPS).forEach(([g,teams])=>{gr[g]=simGroup(teams,v,bias,locked,ls,whatif);});
-  const allT=Object.entries(gr).map(([g,r])=>({group:g,team:r.p3,pts:r.pts[r.p3],gd:r.gf[r.p3]-r.ga[r.p3],gf:r.gf[r.p3]}))
-    .sort((tx,ty)=>(ty.pts-tx.pts)||(ty.gd-tx.gd)||(ty.gf-tx.gf)||((getStr(ty.team,ls))-(getStr(tx.team,ls))));
+  const allT=Object.entries(gr).map(([g,r])=>({group:g,team:r.p3,pts:r.pts[r.p3],gd:r.gf[r.p3]-r.ga[r.p3],gf:r.gf[r.p3]})).sort((tx,ty)=>(ty.pts-tx.pts)||(ty.gd-tx.gd)||(ty.gf-tx.gf)||((getStr(ty.team,ls,''))-(getStr(tx.team,ls,''))));
   const best8=allT.slice(0,8);
   const t3={};best8.forEach(x=>{t3[x.group]=x.team;});
   const key=[...best8.map(x=>x.group)].sort().join("");
@@ -405,47 +314,33 @@ function runSim(levelId,locked,ls,whatif){
   const used=new Set();
   const s3=g=>{const t=t3[g];if(t&&!used.has(t)){used.add(t);return t;}for(const x of best8){if(!used.has(x.team)){used.add(x.team);return x.team;}}return"TBD";};
   const s3f=pool=>{for(const g of pool.split("")){const t=t3[g];if(t&&!used.has(t)){used.add(t);return t;}}for(const x of best8){if(!used.has(x.team)){used.add(x.team);return x.team;}}return"TBD";};
-  const opp=combo
-    ?{m74:s3(combo.m74),m77:s3(combo.m77),m79:s3(combo.m79),m80:s3(combo.m80),m81:s3(combo.m81),m82:s3(combo.m82),m85:s3(combo.m85),m87:s3(combo.m87)}
-    :{m74:s3f("ABCDF"),m77:s3f("CDFGH"),m79:s3f("CEFHI"),m80:s3f("EHIJK"),m81:s3f("BEFIJ"),m82:s3f("AEHIJ"),m85:s3f("EFGIJ"),m87:s3f("DEIJL")};
-  const mk=(id,tA,tB)=>({...simKO(tA,tB,v,bias,ls),id,venue:KO_VENUES[id]||""});
-  const r32=[
-    mk("M73",gr.A.p2,gr.B.p2),mk("M74",gr.E.p1,opp.m74),mk("M75",gr.F.p1,gr.C.p2),mk("M76",gr.C.p1,gr.F.p2),
-    mk("M77",gr.I.p1,opp.m77),mk("M78",gr.E.p2,gr.I.p2),mk("M79",gr.A.p1,opp.m79),mk("M80",gr.L.p1,opp.m80),
-    mk("M81",gr.D.p1,opp.m81),mk("M82",gr.G.p1,opp.m82),mk("M83",gr.K.p2,gr.L.p2),mk("M84",gr.H.p1,gr.J.p2),
-    mk("M85",gr.B.p1,opp.m85),mk("M86",gr.J.p1,gr.H.p2),mk("M87",gr.K.p1,opp.m87),mk("M88",gr.D.p2,gr.G.p2),
-  ];
+  const opp=combo?{m74:s3(combo.m74),m77:s3(combo.m77),m79:s3(combo.m79),m80:s3(combo.m80),m81:s3(combo.m81),m82:s3(combo.m82),m85:s3(combo.m85),m87:s3(combo.m87)}:{m74:s3f("ABCDF"),m77:s3f("CDFGH"),m79:s3f("CEFHI"),m80:s3f("EHIJK"),m81:s3f("BEFIJ"),m82:s3f("AEHIJ"),m85:s3f("EFGIJ"),m87:s3f("DEIJL")};
+  const mk=(id,tA,tB)=>({...simKO(tA,tB,v,bias,ls,KO_VENUES[id]||''),id,venue:KO_VENUES[id]||""});
+  const r32=[mk("M73",gr.A.p2,gr.B.p2),mk("M74",gr.E.p1,opp.m74),mk("M75",gr.F.p1,gr.C.p2),mk("M76",gr.C.p1,gr.F.p2),mk("M77",gr.I.p1,opp.m77),mk("M78",gr.E.p2,gr.I.p2),mk("M79",gr.A.p1,opp.m79),mk("M80",gr.L.p1,opp.m80),mk("M81",gr.D.p1,opp.m81),mk("M82",gr.G.p1,opp.m82),mk("M83",gr.K.p2,gr.L.p2),mk("M84",gr.H.p1,gr.J.p2),mk("M85",gr.B.p1,opp.m85),mk("M86",gr.J.p1,gr.H.p2),mk("M87",gr.K.p1,opp.m87),mk("M88",gr.D.p2,gr.G.p2)];
   const W={};r32.forEach(m=>{W[m.id]=m.w;});
-  const r16=[
-    mk("M89",W.M73,W.M75),mk("M90",W.M74,W.M77),mk("M91",W.M76,W.M78),mk("M92",W.M79,W.M80),
-    mk("M93",W.M81,W.M82),mk("M94",W.M83,W.M84),mk("M95",W.M86,W.M88),mk("M96",W.M85,W.M87),
-  ];
+  const r16=[mk("M89",W.M73,W.M75),mk("M90",W.M74,W.M77),mk("M91",W.M76,W.M78),mk("M92",W.M79,W.M80),mk("M93",W.M81,W.M82),mk("M94",W.M83,W.M84),mk("M95",W.M86,W.M88),mk("M96",W.M85,W.M87)];
   r16.forEach(m=>{W[m.id]=m.w;});
   const qf=[mk("M97",W.M89,W.M90),mk("M98",W.M91,W.M92),mk("M99",W.M93,W.M94),mk("M100",W.M95,W.M96)];
   qf.forEach(m=>{W[m.id]=m.w;});
   const sf=[mk("M101",W.M97,W.M98),mk("M102",W.M99,W.M100)];
   sf.forEach(m=>{W[m.id]=m.w;});
-  const sf1l=sf[0].a===sf[0].w?sf[0].b:sf[0].a;
-  const sf2l=sf[1].a===sf[1].w?sf[1].b:sf[1].a;
-  const bronze=mk("M103",sf1l,sf2l);
-  const final=mk("M104",W.M101,W.M102);
+  const sf1l=sf[0].a===sf[0].w?sf[0].b:sf[0].a,sf2l=sf[1].a===sf[1].w?sf[1].b:sf[1].a;
+  const bronze=mk("M103",sf1l,sf2l),final=mk("M104",W.M101,W.M102);
   return{gr,best8,r32,r16,qf,sf,bronze,final,CIRCLED:CIRCLED_IDS};
 }
 
-// ─── OLIVOS ENGINE ────────────────────────────────────────────
+// ── OLIVOS ENGINE ─────────────────────────────────────────────
 function runEngine(levelId,locked,ls,onProgress){
   return new Promise(resolve=>{
-    const N=10000;
-    const counts={};
+    const N=10000,counts={};
     const allTeams=Object.values(GROUPS).flat();
     allTeams.forEach(t=>{counts[t]={winGroup:0,r32:0,r16:0,qf:0,sf:0,final:0,win:0};});
     let i=0;
-    const BATCH=200;
-    function runBatch(){
-      const end=Math.min(i+BATCH,N);
+    function batch(){
+      const end=Math.min(i+200,N);
       for(;i<end;i++){
         const s=runSim(levelId,locked,ls,null);
-        Object.entries(s.gr).forEach(([g,d])=>{counts[d.p1].winGroup++;counts[d.p2].winGroup++;});
+        Object.entries(s.gr).forEach(([,d])=>{counts[d.p1].winGroup++;counts[d.p2].winGroup++;});
         s.r32.forEach(m=>{counts[m.w]&&counts[m.w].r32++;});
         s.r16.forEach(m=>{counts[m.w]&&counts[m.w].r16++;});
         s.qf.forEach(m=>{counts[m.w]&&counts[m.w].qf++;});
@@ -454,42 +349,34 @@ function runEngine(levelId,locked,ls,onProgress){
         counts[s.final.b]&&counts[s.final.b].final++;
         counts[s.final.w]&&counts[s.final.w].win++;
       }
-      onProgress(Math.round((i/N)*100));
-      if(i<N){setTimeout(runBatch,0);}
-      else{
-        const results=allTeams.map(t=>({
-          team:t,group:Object.entries(GROUPS).find(([,ts])=>ts.includes(t))?.[0]||'',
-          winGroup:Math.round(counts[t].winGroup/N*100),
-          r32:Math.round(counts[t].r32/N*100),r16:Math.round(counts[t].r16/N*100),
-          qf:Math.round(counts[t].qf/N*100),sf:Math.round(counts[t].sf/N*100),
-          final:Math.round(counts[t].final/N*100),win:Math.round(counts[t].win/N*100),
-        }));
-        resolve(results);
-      }
+      onProgress(Math.round(i/N*100));
+      if(i<N)setTimeout(batch,0);
+      else resolve(allTeams.map(t=>({team:t,group:Object.entries(GROUPS).find(([,ts])=>ts.includes(t))?.[0]||'',winGroup:Math.round(counts[t].winGroup/N*100),r32:Math.round(counts[t].r32/N*100),r16:Math.round(counts[t].r16/N*100),qf:Math.round(counts[t].qf/N*100),sf:Math.round(counts[t].sf/N*100),final:Math.round(counts[t].final/N*100),win:Math.round(counts[t].win/N*100)})));
     }
-    setTimeout(runBatch,0);
+    setTimeout(batch,0);
   });
 }
 
-// ─── BRACKET ──────────────────────────────────────────────────
+// ── BRACKET ───────────────────────────────────────────────────
 const CW=180,CH=72,CG=6,COL=26,HDR=20;
 function slotY(ri,si){const u=CH+CG,sp=u*Math.pow(2,ri),ft=HDR+sp/2-CH/2;return ft+si*sp+CH/2;}
 const BH=HDR+(CH+CG)*8+20;
 
-function BCard({m,circled,C}){
+function BCard({m,isMyTicket,C}){
   if(!m)return<div style={{width:CW,height:CH,background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}/>;
   const aw=m.w===m.a,bw=m.w===m.b;
+  const isMy=isMyTicket&&isMyTicket(m.id);
   return(
-    <div style={{width:CW,background:circled?C.cardGold:C.card,border:`1.5px solid ${circled?C.gold:C.border}`,borderRadius:7,padding:"5px 7px",boxShadow:circled?`0 0 14px ${C.gold}55`:"none",position:"relative",boxSizing:"border-box"}}>
-      {circled&&<div style={{position:"absolute",top:-6,right:4,fontSize:7,background:C.gold,color:"#000",borderRadius:3,padding:"1px 4px",fontWeight:"800"}}>🟣</div>}
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:circled?C.gold:C.muted,marginBottom:3}}>
+    <div style={{width:CW,background:isMy?C.myRedCard:C.card,border:`1.5px solid ${isMy?C.myRed:C.border}`,borderRadius:7,padding:"5px 7px",boxShadow:isMy?`0 0 14px ${C.myRed}55`:"none",position:"relative",boxSizing:"border-box"}}>
+      {isMy&&<div style={{position:"absolute",top:-6,right:4,fontSize:7,background:C.myRed,color:"#fff",borderRadius:3,padding:"1px 4px",fontWeight:"800"}}>🎟️</div>}
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:isMy?C.myRed:C.muted,marginBottom:3}}>
         <span style={{fontWeight:"700"}}>{m.id}</span>
         <span style={{maxWidth:84,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
       </div>
       {[{t:m.a,s:m.sa,w:aw},{t:m.b,s:m.sb,w:bw}].map((row,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
           <span style={{fontSize:13}}>{fl(row.t)}</span>
-          <span style={{fontSize:7,color:C.muted,minWidth:18}}>#{INTL_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:7,color:C.muted,minWidth:18}}>#{FIFA_RANK[row.t]||"?"}</span>
           <span style={{fontSize:10,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t||"TBD"}</span>
           <span style={{fontSize:12,fontWeight:"900",color:row.w?C.gold:"#777",minWidth:14,textAlign:"right"}}>{row.s}</span>
         </div>
@@ -497,7 +384,7 @@ function BCard({m,circled,C}){
     </div>
   );
 }
-function HalfBracket({rounds,direction,circled,C}){
+function HalfBracket({rounds,direction,isMyTicket,C}){
   const ltr=direction==="ltr",nC=rounds.length,W=nC*(CW+COL)-COL;
   const cy=(r,s)=>slotY(ltr?r:(nC-1-r),s);
   const lines=[];
@@ -508,25 +395,22 @@ function HalfBracket({rounds,direction,circled,C}){
     <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
       <svg style={{position:"absolute",top:0,left:0,width:W,height:BH,pointerEvents:"none"}}>{lines}</svg>
       {rounds.map((_,r)=>(<div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>))}
-      {rounds.map((ms,r)=>ms.map((m,s)=>(<div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}><BCard m={m} circled={circled?.has(m?.id)} C={C}/></div>)))}
+      {rounds.map((ms,r)=>ms.map((m,s)=>(<div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}><BCard m={m} isMyTicket={isMyTicket} C={C}/></div>)))}
     </div>
   );
 }
-function FinalCard({final,C}){
-  const aw=final.w===final.a,bw=final.w===final.b;
+function FinalCard({final,isMyTicket,C}){
+  const aw=final.w===final.a,bw=final.w===final.b,isMy=isMyTicket&&isMyTicket('M104');
   return(
-    <div style={{width:196,background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:12,padding:"9px 11px",boxShadow:`0 0 32px ${C.gold}55`,flexShrink:0,alignSelf:"center"}}>
+    <div style={{width:196,background:isMy?C.myRedCard:C.cardGold,border:`2px solid ${isMy?C.myRed:C.gold}`,borderRadius:12,padding:"9px 11px",boxShadow:`0 0 32px ${isMy?C.myRed:C.gold}55`,flexShrink:0,alignSelf:"center"}}>
       <div style={{textAlign:"center",marginBottom:7}}>
-        <div style={{fontSize:7.5,color:C.gold,letterSpacing:3,fontWeight:"800"}}>🏆 LA GRAN FINAL</div>
+        <div style={{fontSize:7.5,color:isMy?C.myRed:C.gold,letterSpacing:3,fontWeight:"800"}}>🏆 LA GRAN FINAL</div>
         <div style={{fontSize:7,color:C.muted,marginTop:1}}>M104 · East Rutherford NJ · 19 Jul</div>
       </div>
       {[{t:final.a,s:final.sa,w:aw},{t:final.b,s:final.sb,w:bw}].map((row,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 0",borderTop:`1px solid ${C.border}`}}>
           <span style={{fontSize:20}}>{fl(row.t)}</span>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:7.5,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</div>
-            <div style={{fontSize:11,fontWeight:row.w?"800":"400",color:row.w?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t}</div>
-          </div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:7.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</div><div style={{fontSize:11,fontWeight:row.w?"800":"400",color:row.w?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t}</div></div>
           <span style={{fontSize:18,fontWeight:"900",color:row.w?C.gold:"#777"}}>{row.s}</span>
         </div>
       ))}
@@ -538,7 +422,7 @@ function FinalCard({final,C}){
     </div>
   );
 }
-function VisualBracket({sim,C,t}){
+function VisualBracket({sim,isMyTicket,C,t}){
   const[zoom,setZoom]=useState(1);
   const find=(arr,id)=>arr.find(m=>m.id===id);
   const LR32=["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>find(sim.r32,id));
@@ -552,294 +436,385 @@ function VisualBracket({sim,C,t}){
     <div style={{paddingBottom:16}}>
       <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
         <span style={{fontSize:9,color:C.muted}}>{t.zoom}:</span>
-        {[{l:"100%",v:1},{l:"75%",v:0.75},{l:"50%",v:0.5},{l:"33%",v:0.33}].map(z=>(
-          <button key={z.v} onClick={()=>setZoom(z.v)} style={{padding:"3px 10px",borderRadius:6,fontSize:10,background:zoom===z.v?C.accent+"33":"transparent",color:zoom===z.v?C.accent:C.muted,border:`1px solid ${zoom===z.v?C.accent:C.border}`}}>{z.l}</button>
-        ))}
+        {[{l:"100%",v:1},{l:"75%",v:0.75},{l:"50%",v:0.5},{l:"33%",v:0.33}].map(z=>(<button key={z.v} onClick={()=>setZoom(z.v)} style={{padding:"3px 10px",borderRadius:6,fontSize:10,background:zoom===z.v?C.accent+"33":"transparent",color:zoom===z.v?C.accent:C.muted,border:`1px solid ${zoom===z.v?C.accent:C.border}`}}>{z.l}</button>))}
       </div>
-      <div style={{overflowX:"auto"}}>
-        <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:zoom<1?`${100/zoom}%`:"auto",height:zoom<1?BH*zoom+20:"auto",paddingBottom:12}}>
-          <div style={{display:"flex",alignItems:"flex-start"}}>
-            <HalfBracket rounds={[LR32,LR16,LQF,[sim.sf[0]]]} direction="ltr" circled={sim.CIRCLED} C={C}/>
-            <div style={{width:FW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <svg style={{position:"absolute",top:0,left:0,width:FW,height:BH,pointerEvents:"none"}}>
-                <line x1={0} y1={sfY} x2={COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={COL} y1={sfY} x2={COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={COL} y1={BH/2} x2={FW/2-95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={FW} y1={sfY} x2={FW-COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={FW-COL} y1={sfY} x2={FW-COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={FW-COL} y1={BH/2} x2={FW/2+95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-              </svg>
-              <FinalCard final={sim.final} C={C}/>
-            </div>
-            <HalfBracket rounds={[[sim.sf[1]],RQF,RR16,RR32]} direction="rtl" circled={sim.CIRCLED} C={C}/>
+      <div style={{overflowX:"auto"}}><div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:zoom<1?`${100/zoom}%`:"auto",height:zoom<1?BH*zoom+20:"auto",paddingBottom:12}}>
+        <div style={{display:"flex",alignItems:"flex-start"}}>
+          <HalfBracket rounds={[LR32,LR16,LQF,[sim.sf[0]]]} direction="ltr" isMyTicket={isMyTicket} C={C}/>
+          <div style={{width:FW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg style={{position:"absolute",top:0,left:0,width:FW,height:BH,pointerEvents:"none"}}>
+              <line x1={0} y1={sfY} x2={COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+              <line x1={COL} y1={sfY} x2={COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+              <line x1={COL} y1={BH/2} x2={FW/2-95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+              <line x1={FW} y1={sfY} x2={FW-COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+              <line x1={FW-COL} y1={sfY} x2={FW-COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+              <line x1={FW-COL} y1={BH/2} x2={FW/2+95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+            </svg>
+            <FinalCard final={sim.final} isMyTicket={isMyTicket} C={C}/>
           </div>
+          <HalfBracket rounds={[[sim.sf[1]],RQF,RR16,RR32]} direction="rtl" isMyTicket={isMyTicket} C={C}/>
         </div>
-      </div>
+      </div></div>
     </div>
   );
 }
-function GroupTable({grp,data,C,t}){
+
+// ── GROUP TABLE ───────────────────────────────────────────────
+function GroupTable({grp,data,C,t,isMyTicket,toggleTicket}){
   const teams=[data.p1,data.p2,data.p3,data.p4];
   return(
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",marginBottom:12}}>
-      <div style={{background:C.headerBg,padding:"7px 11px",display:"flex",alignItems:"center",gap:8,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{background:C.bg,padding:"7px 11px",display:"flex",alignItems:"center",gap:8,borderBottom:`1px solid ${C.border}`}}>
         <div style={{width:22,height:22,borderRadius:5,background:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",fontSize:12,color:"#000"}}>{grp}</div>
         <span style={{fontSize:10,color:C.muted,letterSpacing:2}}>GRUPO {grp} · {GROUP_VENUES[grp]}</span>
       </div>
       <table style={{width:"100%"}}>
-        <thead><tr style={{background:C.surface}}>{["","Selección",t.rank,"G","E","P","GF","GC","DG","Pts"].map((h,i)=>(<th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Selección"?"left":"center",fontSize:10}}>{h}</th>))}</tr></thead>
-        <tbody>
-          {teams.map((tm,i)=>{
-            const gd=data.gf[tm]-data.ga[tm];
-            return(
-              <tr key={tm} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i===1?`${C.accent}11`:"transparent"}}>
-                <td style={{padding:"5px 6px",textAlign:"center"}}><span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#222",color:i<3?"#000":"#555"}}>{i+1}</span></td>
-                <td style={{padding:"5px 6px"}}><div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:15}}>{fl(tm)}</span><span style={{color:i<2?C.text:C.muted,fontWeight:i<2?"600":"400",fontSize:11}}>{tm}</span>{i===0&&<span style={{fontSize:7,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1°</span>}{i===1&&<span style={{fontSize:7,background:C.accent,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2°</span>}{i===2&&<span style={{fontSize:7,background:"#1a3a0a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3°?</span>}</div></td>
-                <td style={{padding:"5px",textAlign:"center"}}><span style={{fontSize:10,color:i<2?C.gold:C.muted}}>#{INTL_RANK[tm]||"?"}</span></td>
-                {[data.wins[tm],data.draws[tm],data.losses[tm],data.gf[tm],data.ga[tm]].map((v,j)=>(<td key={j} style={{padding:"5px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>))}
-                <td style={{padding:"5px",textAlign:"center",color:gd>0?C.green:gd<0?C.red:C.muted,fontWeight:"600",fontSize:11}}>{gd>0?"+":""}{gd}</td>
-                <td style={{padding:"5px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[tm]}</td>
-              </tr>
-            );
-          })}
-        </tbody>
+        <thead><tr style={{background:C.surface}}>{["","Selección","G","E","P","GF","GC","DG","Pts"].map((h,i)=>(<th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Selección"?"left":"center",fontSize:9}}>{h}</th>))}</tr></thead>
+        <tbody>{teams.map((tm,i)=>{const gd=data.gf[tm]-data.ga[tm];return(<tr key={tm} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i===1?`${C.accent}11`:"transparent"}}><td style={{padding:"4px 5px",textAlign:"center"}}><span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#222",color:i<3?"#000":"#555"}}>{i+1}</span></td><td style={{padding:"4px 5px"}}><div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{fl(tm)}</span><span style={{color:i<2?C.text:C.muted,fontWeight:i<2?"600":"400",fontSize:11}}>{tm}</span></div></td>{[data.wins[tm],data.draws[tm],data.losses[tm],data.gf[tm],data.ga[tm]].map((v,j)=>(<td key={j} style={{padding:"4px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>))}<td style={{padding:"4px",textAlign:"center",color:gd>0?C.green:gd<0?C.red:C.muted,fontWeight:"600",fontSize:11}}>{gd>0?"+":""}{gd}</td><td style={{padding:"4px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[tm]}</td></tr>);})}</tbody>
       </table>
       <div style={{padding:"7px 10px",borderTop:`1px solid ${C.border}`,background:C.surface}}>
-        <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>{t.matchResults}</div>
+        <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>PARTIDOS — toca para marcar 🎟️</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:3}}>
-          {data.matches.map((m,i)=>(
-            <div key={i} style={{background:C.card,borderRadius:5,padding:"3px 5px",border:`1px solid ${C.border}`,position:"relative"}}>
-              {m.locked&&<span style={{position:"absolute",top:1,right:2,fontSize:7}}>🔒</span>}
-              {m.whatif&&<span style={{position:"absolute",top:1,right:2,fontSize:7,color:C.blue}}>✏️</span>}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:2}}>
-                <span style={{fontSize:8,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sa>m.sb?C.gold:C.muted}}>{fl(m.a)} {m.a.split(" ")[0]}</span>
-                <span style={{fontSize:10,fontWeight:"800",color:C.text,whiteSpace:"nowrap"}}>{m.sa}-{m.sb}</span>
-                <span style={{fontSize:8,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sb>m.sa?C.gold:C.muted}}>{m.b.split(" ")[0]} {fl(m.b)}</span>
+          {data.matches.map((m,i)=>{
+            // find schedule entry
+            const schedEntry=Object.entries(SCHEDULE).find(([,s])=>s.group===grp&&((s.home===m.a&&s.away===m.b)||(s.home===m.b&&s.away===m.a)));
+            const matchId=schedEntry?schedEntry[0]:null;
+            const isMy=matchId&&isMyTicket&&isMyTicket(matchId);
+            return(
+              <div key={i} onClick={()=>matchId&&toggleTicket&&toggleTicket(matchId)}
+                style={{background:isMy?C.myRedCard:C.card,borderRadius:5,padding:"4px 5px",border:`1px solid ${isMy?C.myRed:C.border}`,cursor:matchId?'pointer':'default',position:"relative"}}>
+                {m.locked&&<span style={{position:"absolute",top:1,right:2,fontSize:7}}>🔒</span>}
+                {isMy&&!m.locked&&<span style={{position:"absolute",top:1,right:2,fontSize:7}}>🎟️</span>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:2}}>
+                  <span style={{fontSize:8,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sa>m.sb?C.gold:C.muted}}>{fl(m.a)} {m.a.split(" ")[0]}</span>
+                  <span style={{fontSize:10,fontWeight:"800",color:isMy?C.myRed:C.text,whiteSpace:"nowrap"}}>{m.sa}-{m.sb}</span>
+                  <span style={{fontSize:8,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sb>m.sa?C.gold:C.muted}}>{m.b.split(" ")[0]} {fl(m.b)}</span>
+                </div>
+                {schedEntry&&<div style={{fontSize:7,color:C.muted,textAlign:"center",marginTop:1}}>{schedEntry[1].date} · {schedEntry[1].venue}</div>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
-function MatchGrid({matches,circled,C,t}){
+
+// ── MATCH CARD ────────────────────────────────────────────────
+function MatchCard({m,isMyTicket,toggleTicket,C,t}){
+  const isMy=isMyTicket&&isMyTicket(m.id);
+  const sched=SCHEDULE[m.id];
   return(
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-      {matches.map((m,i)=>(
-        <div key={i} style={{background:circled.has(m.id)?C.cardGold:C.card,border:`1px solid ${circled.has(m.id)?C.gold:C.border}`,borderRadius:10,padding:"9px 11px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:5}}>
-            <span style={{fontWeight:"700",color:circled.has(m.id)?C.gold:C.muted}}>{m.id}{circled.has(m.id)?" 🟣":""}</span>
-            <span style={{maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
-          </div>
-          {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
-            <div key={j} style={{display:"flex",alignItems:"center",gap:4,marginBottom:j===0?4:0}}>
-              <span style={{fontSize:17}}>{fl(row.t)}</span>
-              <span style={{fontSize:8,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
-              <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
-              <span style={{fontSize:14,fontWeight:"800",color:row.w?C.gold:"#888"}}>{row.s}</span>
-            </div>
-          ))}
-          <div style={{marginTop:5,fontSize:9,color:C.green,fontWeight:"700"}}>✓ {fl(m.w)} {m.w} {t.advances}</div>
+    <div onClick={()=>toggleTicket&&toggleTicket(m.id)} style={{background:isMy?C.myRedCard:C.card,border:`1px solid ${isMy?C.myRed:C.border}`,borderRadius:10,padding:"9px 11px",cursor:"pointer"}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:isMy?C.myRed:C.muted,marginBottom:5}}>
+        <span style={{fontWeight:"700"}}>{m.id} {isMy?"🎟️":""}</span>
+        <span style={{maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
+      </div>
+      {sched&&<div style={{fontSize:8,color:C.muted,marginBottom:4}}>{sched.date}</div>}
+      {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
+        <div key={j} style={{display:"flex",alignItems:"center",gap:4,marginBottom:j===0?4:0}}>
+          <span style={{fontSize:17}}>{fl(row.t)}</span>
+          <span style={{fontSize:8,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
+          <span style={{fontSize:14,fontWeight:"800",color:row.w?C.gold:"#888"}}>{row.s}</span>
         </div>
       ))}
+      <div style={{marginTop:5,fontSize:9,color:C.green,fontWeight:"700"}}>✓ {fl(m.w)} {m.w} {t.advances}</div>
     </div>
   );
 }
-function KOCard({m,circled,C}){
+
+// ── MIS PARTIDOS TAB ──────────────────────────────────────────
+function MyTicketsTab({sim,myGames,toggleTicket,clearTickets,C,t}){
+  const allKOMatches=[
+    ...sim.r32.map(m=>({...m,round:'Dieciseisavos'})),
+    ...sim.r16.map(m=>({...m,round:'Octavos'})),
+    ...sim.qf.map(m=>({...m,round:'Cuartos de Final'})),
+    ...sim.sf.map(m=>({...m,round:'Semifinales'})),
+    {id:'M103',...sim.bronze,round:'Tercer Lugar'},
+    {id:'M104',...sim.final,round:'Gran Final'},
+  ];
+
+  // Group stage matches from schedule
+  const groupMatches=Object.entries(SCHEDULE).filter(([,s])=>s.round==='Grupos').map(([id,s])=>({id,...s}));
+
+  const rounds=[
+    {label:'⚽ Fase de Grupos',matches:groupMatches,isGroup:true},
+    {label:'⚔️ Dieciseisavos',matches:allKOMatches.filter(m=>m.round==='Dieciseisavos')},
+    {label:'🔵 Octavos de Final',matches:allKOMatches.filter(m=>m.round==='Octavos')},
+    {label:'🔥 Cuartos de Final',matches:allKOMatches.filter(m=>m.round==='Cuartos de Final')},
+    {label:'🌟 Semifinales',matches:allKOMatches.filter(m=>m.round==='Semifinales')},
+    {label:'🥉 Tercer Lugar',matches:allKOMatches.filter(m=>m.round==='Tercer Lugar')},
+    {label:'🏆 Gran Final',matches:allKOMatches.filter(m=>m.round==='Gran Final')},
+  ];
+
+  const[expanded,setExpanded]=useState({});
+  const toggle=r=>setExpanded(p=>({...p,[r]:!p[r]}));
+
   return(
-    <div style={{background:circled?C.cardGold:C.card,border:`${circled?"2":"1"}px solid ${circled?C.gold:C.border}`,borderRadius:12,padding:"10px 12px",boxShadow:circled?`0 0 18px ${C.gold}44`:"none"}}>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:6}}>
-        <span style={{fontWeight:"700",color:circled?C.gold:C.muted}}>{m.id}{circled?" 🟣":""}</span>
-        <span>{m.venue}</span>
+    <div>
+      <div style={{background:`${C.myRed}11`,border:`1px solid ${C.myRed}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:"900",color:C.myRed,letterSpacing:2,marginBottom:4}}>🎟️ {t.myTicketsTitle}</div>
+        <div style={{fontSize:11,color:C.text,lineHeight:1.6}}>{t.myTicketsDesc}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+          <span style={{fontSize:11,color:C.myRed,fontWeight:"700"}}>{myGames.length} {t.myTicketsCount}</span>
+          {myGames.length>0&&<button onClick={clearTickets} style={{padding:"4px 12px",background:"transparent",border:`1px solid ${C.myRed}`,borderRadius:10,color:C.myRed,fontSize:10}}>🗑️ {t.myTicketsClear}</button>}
+        </div>
       </div>
-      {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
-        <div key={j} style={{display:"flex",alignItems:"center",gap:5,marginBottom:j===0?5:0}}>
-          <span style={{fontSize:20}}>{fl(row.t)}</span>
-          <span style={{fontSize:8,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
-          <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
-          <span style={{fontSize:15,fontWeight:"900",color:row.w?C.gold:"#888"}}>{row.s}</span>
+
+      {rounds.map(({label,matches,isGroup})=>(
+        <div key={label} style={{marginBottom:8}}>
+          <button onClick={()=>toggle(label)} style={{width:"100%",padding:"10px 14px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between",color:C.text,fontSize:12,fontWeight:"700"}}>
+            <span>{label}</span>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              {matches.filter(m=>myGames.includes(m.id||m.home+m.away)).length>0&&
+                <span style={{background:C.myRed,color:"#fff",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:"900"}}>
+                  {matches.filter(m=>myGames.includes(m.id)).length} 🎟️
+                </span>
+              }
+              <span style={{color:C.muted,fontSize:11}}>{expanded[label]?'▲':'▼'}</span>
+            </div>
+          </button>
+          {expanded[label]&&(
+            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:"0 0 10px 10px",padding:10,marginTop:-1}}>
+              {isGroup?(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {matches.map((m)=>{
+                    const isMy=myGames.includes(m.id);
+                    return(
+                      <div key={m.id} onClick={()=>toggleTicket(m.id)}
+                        style={{background:isMy?C.myRedCard:C.card,border:`1.5px solid ${isMy?C.myRed:C.border}`,borderRadius:10,padding:"9px 10px",cursor:"pointer"}}>
+                        <div style={{fontSize:8,color:isMy?C.myRed:C.muted,marginBottom:4,fontWeight:"700"}}>{m.id} · Grupo {m.group} {isMy?"🎟️":""}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
+                          <span style={{fontSize:14}}>{fl(m.home)}</span>
+                          <span style={{fontSize:10,fontWeight:"700",color:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.home}</span>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
+                          <span style={{fontSize:14}}>{fl(m.away)}</span>
+                          <span style={{fontSize:10,color:C.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.away}</span>
+                        </div>
+                        <div style={{fontSize:8,color:C.muted}}>{m.date} · {m.venue}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {matches.map((m)=>{
+                    const isMy=myGames.includes(m.id);
+                    const sched=SCHEDULE[m.id];
+                    return(
+                      <div key={m.id} onClick={()=>toggleTicket(m.id)}
+                        style={{background:isMy?C.myRedCard:C.card,border:`1.5px solid ${isMy?C.myRed:C.border}`,borderRadius:10,padding:"9px 10px",cursor:"pointer"}}>
+                        <div style={{fontSize:8,color:isMy?C.myRed:C.muted,fontWeight:"700",marginBottom:4}}>{m.id} {isMy?"🎟️":""}</div>
+                        {sched&&<div style={{fontSize:8,color:C.muted,marginBottom:4}}>{sched.date} · {m.venue||sched.venue}</div>}
+                        {[{t:m.a,w:m.w===m.a},{t:m.b,w:m.w===m.b}].map((row,j)=>(
+                          <div key={j} style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
+                            <span style={{fontSize:13}}>{fl(row.t)}</span>
+                            <span style={{fontSize:10,color:row.w?C.gold:C.text,fontWeight:row.w?"700":"400",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t||"TBD"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-// ─── OLIVOS ENGINE TAB ────────────────────────────────────────
+// ── OLIVOS ENGINE TAB ─────────────────────────────────────────
 function EngineTab({levelId,locked,ls,C,t}){
   const[results,setResults]=useState(null);
   const[progress,setProgress]=useState(0);
   const[running,setRunning]=useState(false);
+  const[view,setView]=useState('stage'); // 'group' | 'stage'
   const[sortCol,setSortCol]=useState('win');
-  const[groupFilter,setGroupFilter]=useState('ALL');
+  const[groupFilter,setGroupFilter]=useState('A');
+  const[stageFilter,setStageFilter]=useState('win');
+
   const pct=v=>{
     const color=v>=50?C.gold:v>=25?C.accent:v>=10?C.blue:C.muted;
-    return(<div style={{display:"flex",alignItems:"center",gap:4}}><div style={{flex:1,height:4,background:C.border,borderRadius:2,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:color,borderRadius:2,transition:"width 0.3s"}}/></div><span style={{fontSize:10,fontWeight:"700",color,minWidth:30,textAlign:"right"}}>{v}%</span></div>);
+    return(<div style={{display:"flex",alignItems:"center",gap:4}}><div style={{flex:1,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:color,borderRadius:3}}/></div><span style={{fontSize:11,fontWeight:"700",color,minWidth:34,textAlign:"right"}}>{v}%</span></div>);
   };
   const run=async()=>{setRunning(true);setResults(null);setProgress(0);const r=await runEngine(levelId,locked,ls,p=>setProgress(p));setResults(r);setRunning(false);};
-  const sorted=useMemo(()=>{if(!results)return[];let r=[...results];if(groupFilter!=='ALL')r=r.filter(x=>x.group===groupFilter);return r.sort((a,b)=>b[sortCol]-a[sortCol]);},[results,sortCol,groupFilter]);
+
+  const groupResults=useMemo(()=>results?results.filter(r=>r.group===groupFilter).sort((a,b)=>b[sortCol]-a[sortCol]):[],[results,groupFilter,sortCol]);
+  const stageResults=useMemo(()=>results?[...results].sort((a,b)=>b[stageFilter]-a[stageFilter]).slice(0,16):[],[results,stageFilter]);
+
+  const STAGES=[['win','🏆 Campeón'],['final','Final'],['sf','Semis'],['qf','Cuartos'],['r16','Octavos'],['r32','Diec.'],['winGroup','1° Grupo']];
+
   return(
     <div>
       <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:14,padding:"14px 16px",marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <img src="./images/Olivos_Oracle_rojo.png" style={{width:44,height:44,objectFit:"contain",borderRadius:8}} alt="Olivos Oracle"/>
-          <div>
-            <div style={{fontSize:16,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div>
-            <div style={{fontSize:10,color:C.muted,letterSpacing:1}}>{t.engineSub}</div>
-          </div>
+          <img src="./images/Olivos_Oracle_rojo.png" style={{width:40,height:40,objectFit:"contain",borderRadius:8}} alt=""/>
+          <div><div style={{fontSize:15,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div><div style={{fontSize:10,color:C.muted}}>{t.engineSub}</div></div>
         </div>
         <div style={{fontSize:11,color:C.text,lineHeight:1.6,borderTop:`1px solid ${C.goldDim}`,paddingTop:8}}>{t.engineDesc}</div>
       </div>
-      {!running&&(<button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14}}>🧬 {t.runEngine}</button>)}
+      {!running&&<button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14}}>🧬 {t.runEngine}</button>}
       {running&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px",marginBottom:14}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-            <div style={{fontSize:14}} className="spin">⚙️</div>
-            <span style={{fontSize:12,color:C.gold,fontWeight:"700"}}>{t.engineRunning}... {progress}%</span>
-          </div>
-          <div style={{width:"100%",height:10,background:C.border,borderRadius:5,overflow:"hidden"}}>
-            <div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,borderRadius:5,transition:"width 0.1s"}}/>
-          </div>
-          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones completadas: {Math.round(progress*100)}</div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><div className="spin" style={{fontSize:14}}>⚙️</div><span style={{fontSize:12,color:C.gold,fontWeight:"700"}}>{t.engineRunning}... {progress}%</span></div>
+          <div style={{width:"100%",height:12,background:C.border,borderRadius:6,overflow:"hidden"}}><div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,transition:"width 0.1s"}}/></div>
+          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones</div>
         </div>
       )}
       {results&&!running&&(
         <div>
-          <div style={{fontSize:9,color:C.green,marginBottom:10,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone}</div>
-          <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:9,color:C.muted}}>{t.sortBy}:</span>
-            {[['win',t.colWin],['final',t.colFinal],['sf',t.colSF],['qf',t.colQF],['r16',t.colR16],['winGroup',t.colWinGroup]].map(([k,label])=>(
-              <button key={k} onClick={()=>setSortCol(k)} style={{padding:"3px 8px",borderRadius:10,fontSize:9,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{label}</button>
+          <div style={{fontSize:9,color:C.green,marginBottom:12,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone}</div>
+          {/* View toggle */}
+          <div style={{display:"flex",gap:6,marginBottom:12}}>
+            {[['group',t.byGroup],['stage',t.byStage]].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px",borderRadius:10,fontSize:11,fontWeight:"700",background:view===v?C.gold+"22":"transparent",color:view===v?C.gold:C.muted,border:`1.5px solid ${view===v?C.gold:C.border}`}}>{l}</button>
             ))}
           </div>
-          <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
-            {['ALL',...Object.keys(GROUPS)].map(g=>(<button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"2px 8px",borderRadius:8,fontSize:9,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`}}>{g==='ALL'?'Todos':g}</button>))}
-          </div>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr style={{background:C.surface}}><th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>#</th><th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colTeam}</th><th style={{padding:"6px 8px",textAlign:"center",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colGroup}</th>{[t.colWinGroup,t.colR32,t.colR16,t.colQF,t.colSF,t.colFinal,t.colWin].map((h,i)=>(<th key={i} style={{padding:"6px 4px",textAlign:"center",fontSize:8,color:C.muted,fontWeight:"700",minWidth:55}}>{h}</th>))}</tr></thead>
-              <tbody>
-                {sorted.map((row,i)=>(
-                  <tr key={row.team} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i<3?`${C.gold}08`:"transparent"}}>
-                    <td style={{padding:"5px 8px",fontSize:10,color:C.muted,fontWeight:"700"}}>{i+1}</td>
-                    <td style={{padding:"5px 8px"}}><div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{fl(row.team)}</span><span style={{fontSize:10,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</span></div></td>
-                    <td style={{padding:"5px 4px",textAlign:"center"}}><span style={{fontSize:10,background:C.accent+"22",color:C.accent,padding:"1px 5px",borderRadius:4,fontWeight:"700"}}>{row.group}</span></td>
-                    {[row.winGroup,row.r32,row.r16,row.qf,row.sf,row.final,row.win].map((v,j)=>(<td key={j} style={{padding:"4px 4px",minWidth:55}}>{pct(v)}</td>))}
-                  </tr>
+
+          {view==='group'&&(
+            <div>
+              {/* Group selector */}
+              <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
+                {Object.keys(GROUPS).map(g=>(<button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"4px 10px",borderRadius:8,fontSize:10,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`,fontWeight:groupFilter===g?"700":"400"}}>{g}</button>))}
+              </div>
+              <div style={{fontSize:9,color:C.muted,marginBottom:6}}>{t.sortBy}: {STAGES.map(([k,l])=>(<button key={k} onClick={()=>setSortCol(k)} style={{marginLeft:4,padding:"2px 6px",borderRadius:6,fontSize:8,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{l}</button>))}</div>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                {groupResults.map((row,i)=>(
+                  <div key={row.team} style={{borderTop:i>0?`1px solid ${C.border}`:"none",padding:"10px 12px",background:i===0?`${C.gold}11`:"transparent"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <span style={{fontSize:12,color:C.muted,fontWeight:"700",minWidth:16}}>{i+1}</span>
+                      <span style={{fontSize:18}}>{fl(row.team)}</span>
+                      <span style={{fontSize:12,fontWeight:i===0?"700":"400",color:i===0?C.gold:C.text,flex:1}}>{row.team}</span>
+                      <span style={{fontSize:9,background:C.accent+"22",color:C.accent,padding:"1px 6px",borderRadius:4,fontWeight:"700"}}>Grupo {row.group}</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+                      {STAGES.map(([k,l])=>(
+                        <div key={k} style={{textAlign:"center"}}>
+                          <div style={{fontSize:7,color:C.muted,marginBottom:2}}>{l}</div>
+                          {pct(row[k])}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          )}
+
+          {view==='stage'&&(
+            <div>
+              {/* Stage selector */}
+              <div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>
+                {STAGES.map(([k,l])=>(<button key={k} onClick={()=>setStageFilter(k)} style={{padding:"5px 10px",borderRadius:8,fontSize:10,fontWeight:stageFilter===k?"700":"400",background:stageFilter===k?C.gold+"22":"transparent",color:stageFilter===k?C.gold:C.muted,border:`1px solid ${stageFilter===k?C.gold:C.border}`}}>{l}</button>))}
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8,letterSpacing:1}}>TOP 16 — {STAGES.find(([k])=>k===stageFilter)?.[1]}</div>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                {stageResults.map((row,i)=>(
+                  <div key={row.team} style={{borderTop:i>0?`1px solid ${C.border}`:"none",padding:"8px 12px",background:i===0?`${C.gold}18`:i<3?`${C.gold}08`:"transparent",display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:13,color:i===0?C.gold:C.muted,fontWeight:"700",minWidth:20}}>{i+1}</span>
+                    <span style={{fontSize:18}}>{fl(row.team)}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</div>
+                      <div style={{fontSize:8,color:C.muted}}>Grupo {row.group} · #{FIFA_RANK[row.team]||"?"}</div>
+                    </div>
+                    <div style={{minWidth:80}}>{pct(row[stageFilter])}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// ─── WHAT-IF TAB ──────────────────────────────────────────────
+// ── WHAT-IF TAB ───────────────────────────────────────────────
 function WhatIfTab({sim,locked,onWhatifChange,whatif,C,t}){
-  const[localWhatif,setLocalWhatif]=useState({...whatif});
+  const[local,setLocal]=useState({...whatif});
   const[editing,setEditing]=useState(null);
-  const[editA,setEditA]=useState(0);
-  const[editB,setEditB]=useState(0);
-  const allGroupMatches=[];
-  Object.entries(sim.gr).forEach(([g,data])=>{data.matches.forEach(m=>{const k=`${m.a}|${m.b}`;allGroupMatches.push({...m,group:g,key:k,isLocked:m.locked,isWhatif:!!localWhatif[k]});});});
-  const applyEdit=()=>{if(!editing)return;setLocalWhatif(prev=>({...prev,[editing.key]:{home:editA,away:editB}}));setEditing(null);};
-  const resetAll=()=>{setLocalWhatif({});onWhatifChange({});};
-  const applyAll=()=>onWhatifChange(localWhatif);
+  const[eA,setEA]=useState(0);
+  const[eB,setEB]=useState(0);
+  const allMatches=[];
+  Object.entries(sim.gr).forEach(([g,data])=>{data.matches.forEach(m=>{const k=`${m.a}|${m.b}`;allMatches.push({...m,group:g,key:k,isLocked:m.locked,isWI:!!local[k]});});});
+  const applyEdit=()=>{if(!editing)return;setLocal(p=>({...p,[editing.key]:{home:eA,away:eB}}));setEditing(null);};
   return(
     <div>
       <div style={{background:`${C.blue}18`,border:`1px solid ${C.blue}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-        <div style={{fontSize:12,fontWeight:"900",color:C.blue,letterSpacing:2,marginBottom:6}}>🔀 {t.whatifTitle}</div>
+        <div style={{fontSize:13,fontWeight:"900",color:C.blue,letterSpacing:2,marginBottom:6}}>🔀 {t.whatifTitle}</div>
         <div style={{fontSize:11,color:C.text,lineHeight:1.7}}>{t.whatifDesc}</div>
       </div>
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        <button onClick={applyAll} style={{flex:1,padding:"10px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:12,fontWeight:"700"}}>✅ {t.whatifApply}</button>
-        <button onClick={resetAll} style={{flex:1,padding:"10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12}}>🔄 {t.whatifReset}</button>
+        <button onClick={()=>onWhatifChange(local)} style={{flex:1,padding:"10px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:12,fontWeight:"700"}}>✅ {t.whatifApply}</button>
+        <button onClick={()=>{setLocal({});onWhatifChange({});}} style={{flex:1,padding:"10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12}}>🔄 {t.whatifReset}</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        {allGroupMatches.map((m,i)=>{
-          const wi=localWhatif[m.key];
-          return(
-            <div key={i} style={{background:m.isLocked?C.surface:wi?`${C.blue}11`:C.card,border:`1px solid ${m.isLocked?C.border:wi?C.blue:C.border}`,borderRadius:10,padding:"9px 10px",opacity:m.isLocked?0.7:1}}>
-              <div style={{fontSize:8,color:C.muted,marginBottom:4,display:"flex",justifyContent:"space-between"}}>
-                <span>Grupo {m.group}</span>
-                {m.isLocked&&<span style={{fontSize:8,color:C.muted}}>{t.whatifLocked}</span>}
-                {wi&&!m.isLocked&&<span style={{fontSize:8,color:C.blue}}>✏️ {wi.home}-{wi.away}</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:13}}>{fl(m.a)}</span>
-                <span style={{fontSize:11,color:C.text,flex:1,textAlign:"center"}}>{m.a.split(" ")[0]}</span>
-                <span style={{fontSize:12,color:C.muted}}>vs</span>
-                <span style={{fontSize:11,color:C.text,flex:1,textAlign:"center"}}>{m.b.split(" ")[0]}</span>
-                <span style={{fontSize:13}}>{fl(m.b)}</span>
-              </div>
-              {!m.isLocked&&(editing&&editing.key===m.key?(
-                <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                  <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
-                  <span style={{color:C.muted}}>-</span>
-                  <input type="number" min="0" max="20" value={editB} onChange={e=>setEditB(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
-                  <button onClick={applyEdit} style={{flex:1,padding:"3px 6px",background:C.gold,border:"none",borderRadius:5,color:"#000",fontSize:10,fontWeight:"700"}}>✓</button>
-                  <button onClick={()=>setEditing(null)} style={{padding:"3px 6px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10}}>✗</button>
-                </div>
-              ):(
-                <button onClick={()=>{setEditing(m);setEditA(wi?.home??1);setEditB(wi?.away??0);}} style={{width:"100%",padding:"4px",background:"transparent",border:`1px dashed ${C.border}`,borderRadius:6,color:C.muted,fontSize:9}}>
-                  {wi?`${wi.home}-${wi.away} · Cambiar`:"+ Definir marcador"}
-                </button>
-              ))}
+        {allMatches.map((m,i)=>{const wi=local[m.key];return(
+          <div key={i} style={{background:m.isLocked?C.surface:wi?`${C.blue}11`:C.card,border:`1px solid ${m.isLocked?C.border:wi?C.blue:C.border}`,borderRadius:10,padding:"9px 10px",opacity:m.isLocked?0.7:1}}>
+            <div style={{fontSize:8,color:C.muted,marginBottom:4,display:"flex",justifyContent:"space-between"}}>
+              <span>Grupo {m.group}</span>
+              {m.isLocked&&<span style={{fontSize:8}}>{t.whatifLocked}</span>}
+              {wi&&!m.isLocked&&<span style={{fontSize:8,color:C.blue}}>✏️ {wi.home}-{wi.away}</span>}
             </div>
-          );
-        })}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13}}>{fl(m.a)}</span><span style={{fontSize:10,color:C.text,flex:1,textAlign:"center"}}>{m.a.split(" ")[0]}</span>
+              <span style={{fontSize:11,color:C.muted}}>vs</span>
+              <span style={{fontSize:10,color:C.text,flex:1,textAlign:"center"}}>{m.b.split(" ")[0]}</span><span style={{fontSize:13}}>{fl(m.b)}</span>
+            </div>
+            {!m.isLocked&&(editing&&editing.key===m.key?(
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                <input type="number" min="0" max="20" value={eA} onChange={e=>setEA(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                <span style={{color:C.muted}}>-</span>
+                <input type="number" min="0" max="20" value={eB} onChange={e=>setEB(+e.target.value)} style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                <button onClick={applyEdit} style={{flex:1,padding:"3px 6px",background:C.gold,border:"none",borderRadius:5,color:"#000",fontSize:10,fontWeight:"700"}}>✓</button>
+                <button onClick={()=>setEditing(null)} style={{padding:"3px 6px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10}}>✗</button>
+              </div>
+            ):(
+              <button onClick={()=>{setEditing(m);setEA(wi?.home??1);setEB(wi?.away??0);}} style={{width:"100%",padding:"4px",background:"transparent",border:`1px dashed ${C.border}`,borderRadius:6,color:C.muted,fontSize:9}}>{wi?`${wi.home}-${wi.away} · Cambiar`:"+ Definir marcador"}</button>
+            ))}
+          </div>
+        );})}
       </div>
     </div>
   );
 }
 
-// ─── ADMIN TAB ────────────────────────────────────────────────
+// ── ADMIN TAB ─────────────────────────────────────────────────
 function AdminTab({C,t}){
-  const[conflicts,setConflicts]=useState([]);
   const[matches,setMatches]=useState([]);
   const[editing,setEditing]=useState(null);
-  const[editH,setEditH]=useState(0);
-  const[editA,setEditA]=useState(0);
+  const[eH,setEH]=useState(0);
+  const[eA,setEA]=useState(0);
   const[msg,setMsg]=useState('');
-  useEffect(()=>{
-    supaFetch('conflict_log?resolved=eq.false&select=*').then(d=>setConflicts(d||[]));
-    supaFetch('matches?competition=eq.WC2026&select=id,home_team,away_team,home_score,away_score,locked&order=match_date').then(d=>setMatches(d||[]));
-  },[]);
-  const doLock=async(id,lock)=>{await supaWrite(`matches?id=eq.${id}`,{locked:lock},'PATCH');setMatches(prev=>prev.map(m=>m.id===id?{...m,locked:lock}:m));setMsg(lock?`🔒 ${id} bloqueado`:`🔓 ${id} desbloqueado`);setTimeout(()=>setMsg(''),3000);};
-  const doOverride=async()=>{if(!editing)return;await supaWrite(`matches?id=eq.${editing.id}`,{home_score:editH,away_score:editA,admin_override:true,locked:true},'PATCH');setMatches(prev=>prev.map(m=>m.id===editing.id?{...m,home_score:editH,away_score:editA,locked:true}:m));setEditing(null);setMsg(`✅ ${editing.id}: ${editH}-${editA}`);setTimeout(()=>setMsg(''),3000);};
+  useEffect(()=>{supaFetch('matches?competition=eq.WC2026&select=id,home_team,away_team,home_score,away_score,locked&order=match_date').then(d=>setMatches(d||[]));supaFetch('conflict_log?resolved=eq.false&select=*').then(()=>{});},[]);
+  const doLock=async(id,lock)=>{await supaWrite(`matches?id=eq.${id}`,{locked:lock},'PATCH');setMatches(p=>p.map(m=>m.id===id?{...m,locked:lock}:m));setMsg(lock?`🔒 ${id}`:`🔓 ${id}`);setTimeout(()=>setMsg(''),2500);};
+  const doOverride=async()=>{if(!editing)return;await supaWrite(`matches?id=eq.${editing.id}`,{home_score:eH,away_score:eA,admin_override:true,locked:true},'PATCH');setMatches(p=>p.map(m=>m.id===editing.id?{...m,home_score:eH,away_score:eA,locked:true}:m));setEditing(null);setMsg(`✅ ${editing.id}: ${eH}-${eA}`);setTimeout(()=>setMsg(''),2500);};
   return(
     <div>
-      <div style={{background:`${C.red}11`,border:`2px solid ${C.red}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-        <div style={{fontSize:14,fontWeight:"900",color:C.red,letterSpacing:2}}>🔐 {t.adminTitle}</div>
-        <div style={{fontSize:9,color:C.muted,marginTop:2}}>Acceso restringido · Cambios en tiempo real</div>
-      </div>
+      <div style={{background:`${C.red}11`,border:`2px solid ${C.red}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}><div style={{fontSize:14,fontWeight:"900",color:C.red}}>🔐 {t.adminTitle}</div></div>
       {msg&&<div style={{background:C.green+"22",border:`1px solid ${C.green}`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:C.green}}>{msg}</div>}
-      {conflicts.length>0&&(<div style={{marginBottom:14}}><div style={{fontSize:10,color:C.red,fontWeight:"700",letterSpacing:2,marginBottom:8}}>⚠️ {t.adminConflicts} ({conflicts.length})</div>{conflicts.map((c,i)=>(<div key={i} style={{background:C.card,border:`1px solid ${C.red}`,borderRadius:10,padding:"10px",marginBottom:6}}><div style={{fontSize:10,color:C.red,fontWeight:"700"}}>{c.match_id}</div><div style={{fontSize:9,color:C.muted,marginTop:3}}>FD: <strong style={{color:C.text}}>{c.primary_score}</strong> · AF: <strong style={{color:C.text}}>{c.secondary_score}</strong></div></div>))}</div>)}
-      <div style={{fontSize:10,color:C.muted,letterSpacing:2,marginBottom:8}}>PARTIDOS ({matches.length})</div>
       {matches.map((m,i)=>(
         <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 11px",marginBottom:6}}>
           {editing&&editing.id===m.id?(
-            <div>
-              <div style={{fontSize:10,fontWeight:"700",color:C.text,marginBottom:8}}>{m.home_team} vs {m.away_team}</div>
+            <div><div style={{fontSize:10,fontWeight:"700",color:C.text,marginBottom:8}}>{m.home_team} vs {m.away_team}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                <input type="number" min="0" max="20" value={editH} onChange={e=>setEditH(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <input type="number" min="0" max="20" value={eH} onChange={e=>setEH(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
                 <span style={{color:C.muted,fontSize:14}}>-</span>
-                <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <input type="number" min="0" max="20" value={eA} onChange={e=>setEA(+e.target.value)} style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
                 <button onClick={doOverride} style={{flex:1,padding:"6px",background:C.gold,border:"none",borderRadius:6,color:"#000",fontSize:11,fontWeight:"700"}}>{t.adminSave}</button>
                 <button onClick={()=>setEditing(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontSize:11}}>{t.adminCancel}</button>
               </div>
             </div>
           ):(
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:10,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.home_team} vs {m.away_team}</div>
-                <div style={{fontSize:9,color:C.muted}}>{m.id} · {m.home_score??"-"}-{m.away_score??"-"} · <span style={{color:m.locked?C.green:C.muted}}>{m.locked?"🔒":"⬜"}</span></div>
-              </div>
-              <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:10,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.home_team} vs {m.away_team}</div><div style={{fontSize:9,color:C.muted}}>{m.id} · {m.home_score??"-"}-{m.away_score??"-"} {m.locked?"🔒":"⬜"}</div></div>
+              <div style={{display:"flex",gap:4}}>
                 <button onClick={()=>doLock(m.id,!m.locked)} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${m.locked?C.red:C.green}`,borderRadius:6,color:m.locked?C.red:C.green,fontSize:9}}>{m.locked?t.adminUnlock:t.adminLock}</button>
-                <button onClick={()=>{setEditing(m);setEditH(m.home_score??0);setEditA(m.away_score??0);}} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:9}}>{t.adminOverride}</button>
+                <button onClick={()=>{setEditing(m);setEH(m.home_score??0);setEA(m.away_score??0);}} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:9}}>{t.adminOverride}</button>
               </div>
             </div>
           )}
@@ -849,103 +824,103 @@ function AdminTab({C,t}){
   );
 }
 
-// ─── SHARE SECTION ────────────────────────────────────────────
-const OLIVOS_IMAGES=['./images/olivos-1.jpg','./images/olivos-2.jpg','./images/olivos-3.jpg','./images/olivos-4.jpg','./images/olivos-5.jpg','./images/olivos-6.jpg','./images/olivos-7.jpg','./images/olivos-8.jpeg'];
+// ── SHARE SECTION ─────────────────────────────────────────────
+const OLIVOS_IMGS=['./images/olivos-1.jpg','./images/olivos-2.jpg','./images/olivos-3.jpg','./images/olivos-4.jpg','./images/olivos-5.jpg','./images/olivos-6.jpg','./images/olivos-7.jpg','./images/olivos-8.jpeg'];
 
-function ImageScroll(){
+function AppQR({size=160,C}){
+  const cell=Math.floor(size/21);
+  const finder=(x,y)=>[
+    <rect key="o" x={x*cell} y={y*cell} width={7*cell} height={7*cell} fill={C.text}/>,
+    <rect key="i" x={(x+1)*cell} y={(y+1)*cell} width={5*cell} height={5*cell} fill={C.bg}/>,
+    <rect key="c" x={(x+2)*cell} y={(y+2)*cell} width={3*cell} height={3*cell} fill={C.text}/>,
+  ];
+  const data=[[0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,0],[7,1],[7,2],[7,3],[7,4],[7,5],[7,6],[14,0],[15,0],[16,0],[17,0],[18,0],[19,0],[20,0],[14,6],[15,6],[16,6],[17,6],[18,6],[19,6],[20,6],[14,1],[14,2],[14,3],[14,4],[14,5],[20,1],[20,2],[20,3],[20,4],[20,5],[16,2],[17,2],[18,2],[16,3],[17,3],[18,3],[16,4],[17,4],[18,4],[0,14],[1,14],[2,14],[3,14],[4,14],[5,14],[6,14],[0,20],[1,20],[2,20],[3,20],[4,20],[5,20],[6,20],[0,15],[0,16],[0,17],[0,18],[0,19],[6,15],[6,16],[6,17],[6,18],[6,19],[2,16],[3,16],[4,16],[2,17],[3,17],[4,17],[2,18],[3,18],[4,18],[8,8],[9,8],[10,8],[11,8],[12,8],[13,8],[8,9],[8,10],[8,11],[8,12],[8,13],[13,9],[13,10],[13,11],[13,12],[13,13],[9,10],[10,10],[11,10],[12,10],[9,11],[12,11],[9,12],[10,12],[11,12],[12,12],[9,14],[11,14],[13,14],[9,16],[11,16],[13,16],[9,18],[11,18],[13,18],[9,20],[11,20],[13,20],[15,8],[17,8],[19,8],[15,9],[16,9],[18,9],[15,10],[17,10],[19,10],[15,12],[17,12],[19,12],[15,14],[16,14],[18,14],[20,14],[15,16],[17,16],[19,16],[15,18],[16,18],[18,18],[20,18],[15,20],[17,20],[19,20]];
   return(
-    <div className="img-scroll">
-      {OLIVOS_IMAGES.map((src,i)=>(
-        <img key={i} src={src} alt={`Olivos ${i+1}`} loading="lazy"/>
-      ))}
-    </div>
+    <svg width={size} height={size} viewBox={`0 0 ${21*cell} ${21*cell}`} xmlns="http://www.w3.org/2000/svg" style={{background:C.bg,borderRadius:8,padding:2}}>
+      {finder(0,0)}{finder(14,0)}{finder(0,14)}
+      {data.map(([x,y],i)=><rect key={i} x={x*cell} y={y*cell} width={cell} height={cell} fill={C.text}/>)}
+      <circle cx={10.5*cell} cy={10.5*cell} r={1.5*cell} fill={C.bg}/>
+      <circle cx={10.5*cell} cy={10.5*cell} r={1.3*cell} fill="none" stroke={C.gold} strokeWidth={cell*0.35}/>
+      <line x1={10.5*cell} y1={9.3*cell} x2={10.5*cell} y2={11.7*cell} stroke={C.gold} strokeWidth={cell*0.28}/>
+    </svg>
   );
 }
 
 function ShareSection({C,t,sim}){
+  const[oracleOpen,setOracleOpen]=useState(false);
+  const[collectOpen,setCollectOpen]=useState(false);
   const[copied,setCopied]=useState(false);
-  const shareText=()=>{
-    const txt=[
-      `🧬 Olivos Oracle · Copa del Mundo 2026`,``,
-      `🏆 Campeón: ${fl(sim.final.w)} ${sim.final.w}`,
-      `Final: ${sim.final.a} ${sim.final.sa}-${sim.final.sb} ${sim.final.b}`,``,
-      `Prueba el simulador:`,
-      `https://berwc26sim.vercel.app/`,
-    ].join('\n');
+  const share=()=>{
+    const txt=[`🧬 Olivos Oracle · Copa del Mundo 2026`,``,`🏆 Campeón: ${fl(sim.final.w)} ${sim.final.w}`,`Final: ${sim.final.a} ${sim.final.sa}-${sim.final.sb} ${sim.final.b}`,``,`https://berwc26sim.vercel.app/`].join('\n');
     navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
   };
   return(
-    <div style={{marginTop:32,borderTop:`2px solid ${C.gold}`,paddingTop:24}}>
-      {/* Section 1 — Share this app */}
-      <div style={{marginBottom:28}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-          <img src="./images/Olivos_Oracle_rojo.png" style={{width:36,height:36,objectFit:"contain"}} alt="Oracle"/>
-          <div>
-            <div style={{fontSize:14,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.shareApp}</div>
-            <div style={{fontSize:11,color:C.muted}}>{t.shareAppDesc}</div>
-          </div>
-        </div>
-        <ImageScroll/>
-        <div style={{display:"flex",gap:14,alignItems:"center",marginTop:14,flexWrap:"wrap",justifyContent:"center"}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:9,color:C.muted,marginBottom:6,letterSpacing:1}}>{t.scanQR}</div>
-            <div style={{background:C.bg,padding:6,borderRadius:12,border:`2px solid ${C.gold}`,display:"inline-block"}}>
-              <AppQR size={160} C={C}/>
-            </div>
-            <div style={{fontSize:9,color:C.muted,marginTop:4}}>berwc26sim.vercel.app</div>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            <button onClick={shareText} style={{padding:"10px 20px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:20,color:C.gold,fontSize:12,fontWeight:"700",letterSpacing:1}}>
-              {copied?`✅ ${t.shared}`:`📤 ${t.share}`}
-            </button>
-            <a href="https://berwc26sim.vercel.app/" target="_blank" rel="noreferrer" style={{padding:"10px 20px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:20,color:C.muted,fontSize:11,textAlign:"center",textDecoration:"none"}}>
-              🌐 Abrir app
-            </a>
-          </div>
-        </div>
-      </div>
+    <div style={{marginTop:28,borderTop:`2px solid ${C.gold}`,paddingTop:20}}>
 
-      {/* Section 2 — Olivos Collect */}
-      <div style={{borderTop:`1px solid ${C.border}`,paddingTop:24}}>
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:C.gold,letterSpacing:3,fontWeight:"700",marginBottom:4}}>{t.otherApps}</div>
-          <div style={{fontSize:18,fontWeight:"900",color:C.text}}>{t.collectTitle}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:4,lineHeight:1.6}}>{t.collectDesc}</div>
+      {/* Section 1 — Oracle */}
+      <button onClick={()=>setOracleOpen(o=>!o)} style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:8,textAlign:"left"}}>
+        <img src="./images/Olivos_Oracle_rojo.png" style={{width:40,height:40,objectFit:"contain",borderRadius:8,flexShrink:0}} alt=""/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:"900",color:C.gold}}>{t.shareApp}</div>
+          <div style={{fontSize:11,color:C.muted}}>{t.shareAppSub}</div>
         </div>
-        <ImageScroll/>
-        <div style={{display:"flex",gap:14,alignItems:"center",marginTop:14,flexWrap:"wrap",justifyContent:"center"}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:9,color:C.muted,marginBottom:6,letterSpacing:1}}>{t.scanQR}</div>
-            <div style={{background:"#fff",padding:8,borderRadius:12,border:`2px solid ${C.gold}`,display:"inline-block"}}>
-              <img src="./images/qr-olivos.jpg" style={{width:148,height:148,display:"block",borderRadius:6}} alt="QR Olivos Collect"/>
+        <span style={{color:C.muted,fontSize:14}}>{oracleOpen?'▲':'▼'}</span>
+      </button>
+      {oracleOpen&&(
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:"0 0 12px 12px",padding:16,marginBottom:12}}>
+          {OLIVOS_IMGS.map((src,i)=>(<img key={i} src={src} alt="" loading="lazy" style={{width:"100%",borderRadius:10,marginBottom:8,objectFit:"cover",maxHeight:200}}/>))}
+          <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"center",marginTop:8,flexWrap:"wrap"}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:9,color:C.muted,marginBottom:6}}>{t.scanQR}</div>
+              <div style={{background:C.bg,padding:6,borderRadius:10,border:`2px solid ${C.gold}`,display:"inline-block"}}><AppQR size={140} C={C}/></div>
+              <div style={{fontSize:8,color:C.muted,marginTop:4}}>berwc26sim.vercel.app</div>
             </div>
-            <div style={{fontSize:9,color:C.muted,marginTop:4}}>Olivos Collect</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={share} style={{padding:"10px 20px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:20,color:C.gold,fontSize:12,fontWeight:"700"}}>{copied?`✅ ${t.shared}`:`📤 ${t.share}`}</button>
+              <a href="https://berwc26sim.vercel.app/" target="_blank" rel="noreferrer" style={{padding:"10px 20px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:20,color:C.muted,fontSize:11,textAlign:"center",textDecoration:"none"}}>🌐 Abrir</a>
+            </div>
           </div>
-          <button style={{padding:"12px 24px",background:C.gold,border:"none",borderRadius:20,color:"#000",fontSize:13,fontWeight:"900",letterSpacing:1}}>
-            🎴 {t.collectBtn}
-          </button>
         </div>
-      </div>
+      )}
+
+      {/* Section 2 — Collect */}
+      <button onClick={()=>setCollectOpen(o=>!o)} style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:8,textAlign:"left"}}>
+        <div style={{width:40,height:40,background:C.gold+"22",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>🎴</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:"900",color:C.gold}}>{t.otherApps}</div>
+          <div style={{fontSize:11,color:C.muted}}>{t.collectDesc}</div>
+        </div>
+        <span style={{color:C.muted,fontSize:14}}>{collectOpen?'▲':'▼'}</span>
+      </button>
+      {collectOpen&&(
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:"0 0 12px 12px",padding:16,marginBottom:12}}>
+          {OLIVOS_IMGS.map((src,i)=>(<img key={i} src={src} alt="" loading="lazy" style={{width:"100%",borderRadius:10,marginBottom:8,objectFit:"cover",maxHeight:200}}/>))}
+          <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"center",marginTop:8,flexWrap:"wrap"}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:9,color:C.muted,marginBottom:6}}>{t.scanQR}</div>
+              <div style={{background:"#fff",padding:8,borderRadius:10,border:`2px solid ${C.gold}`,display:"inline-block"}}><img src="./images/qr-olivos.jpg" style={{width:140,height:140,display:"block",borderRadius:6}} alt="QR"/></div>
+            </div>
+            <a href="https://b-collection.vercel.app/" target="_blank" rel="noreferrer" style={{padding:"12px 24px",background:C.gold,border:"none",borderRadius:20,color:"#000",fontSize:13,fontWeight:"900",textDecoration:"none",textAlign:"center"}}>🎴 {t.collectBtn}</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── LIVE BADGE ───────────────────────────────────────────────
+// ── LIVE BADGE ────────────────────────────────────────────────
 function LiveBadge({status,liveMatches,C,t}){
-  const labels={live:t.liveData,cached:t.cached,error:t.offline,loading:t.loading};
   const colors={live:C.green,cached:C.muted,error:C.red,loading:C.blue};
-  const hasLive=liveMatches&&liveMatches.length>0;
+  const labels={live:t.liveData,cached:t.cached,error:t.offline,loading:t.loading};
   return(
     <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-      {hasLive&&(<div style={{display:"flex",alignItems:"center",gap:4,background:`${C.red}22`,border:`1px solid ${C.red}`,borderRadius:10,padding:"2px 8px"}}><div className="live-pulse" style={{width:7,height:7,borderRadius:"50%",background:C.liveDot}}/><span style={{fontSize:8,color:C.liveDot,fontWeight:"700",letterSpacing:1}}>{t.liveNow}</span></div>)}
-      <div style={{fontSize:8,color:colors[status]||C.muted,border:`1px solid ${colors[status]||C.border}`,borderRadius:10,padding:"2px 8px",letterSpacing:1}}>
-        {status==="live"?"🟢":status==="error"?"🔴":status==="loading"?"⏳":"⚪"} {labels[status]||status}
-      </div>
+      {liveMatches?.length>0&&(<div style={{display:"flex",alignItems:"center",gap:4,background:`${C.red}22`,border:`1px solid ${C.red}`,borderRadius:10,padding:"2px 8px"}}><div className="live-pulse" style={{width:7,height:7,borderRadius:"50%",background:C.liveDot}}/><span style={{fontSize:8,color:C.liveDot,fontWeight:"700"}}>{t.liveNow}</span></div>)}
+      <div style={{fontSize:8,color:colors[status]||C.muted,border:`1px solid ${colors[status]||C.border}`,borderRadius:10,padding:"2px 8px"}}>{status==="live"?"🟢":status==="error"?"🔴":status==="loading"?"⏳":"⚪"} {labels[status]||status}</div>
     </div>
   );
 }
 
-// ─── MAIN APP ─────────────────────────────────────────────────
+// ── MAIN APP ──────────────────────────────────────────────────
 function App(){
   const[dark,setDark]=useState(true);
   const[lang,setLang]=useState('es');
@@ -959,7 +934,8 @@ function App(){
   const[liveMatches,setLiveMatches]=useState([]);
   const[lastUpd,setLastUpd]=useState(null);
   const[whatif,setWhatif]=useState({});
-  const[confettiFiredForChamp,setConfettiFiredForChamp]=useState(null);
+  const[myGames,setMyGames]=useState(loadMyGames);
+  const[champShown,setChampShown]=useState(null);
   const isAdmin=checkAdmin();
   const C=dark?DARK:LIGHT;
   const t=T[lang];
@@ -971,12 +947,12 @@ function App(){
         const[teams,lockedM,live]=await Promise.all([
           supaFetch('teams?select=id,form_score'),
           supaFetch('matches?locked=eq.true&competition=eq.WC2026&select=home_team,away_team,home_score,away_score'),
-          supaFetch('matches?status=eq.IN_PLAY&select=id,home_team,away_team,home_score,away_score'),
+          supaFetch('matches?status=eq.IN_PLAY&select=id,home_team,away_team'),
         ]);
-        if(teams&&teams.length>0){const m={};teams.forEach(tm=>{m[tm.id]={form_score:tm.form_score||0};});setLs(m);}
-        if(lockedM&&lockedM.length>0){const m={};lockedM.forEach(r=>{m[`${r.home_team}|${r.away_team}`]={home:r.home_score,away:r.away_score};});setLocked(m);}
+        if(teams?.length>0){const m={};teams.forEach(tm=>{m[tm.id]={form_score:tm.form_score||0};});setLs(m);}
+        if(lockedM?.length>0){const m={};lockedM.forEach(r=>{m[`${r.home_team}|${r.away_team}`]={home:r.home_score,away:r.away_score};});setLocked(m);}
         setLiveMatches(live||[]);
-        setLiveStatus(teams&&teams.length>0?'live':'cached');
+        setLiveStatus(teams?.length>0?'live':'cached');
         setLastUpd(new Date().toLocaleTimeString());
       }catch{setLiveStatus('error');}
     }
@@ -988,88 +964,84 @@ function App(){
   useEffect(()=>{document.body.className=dark?"":"light";document.body.style.background=C.bg;},[dark]);
   useEffect(()=>{setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null));},[levelId,locked,ls,whatif]);
 
-  // Fire confetti when Final tab opens
+  // Confetti on Final tab
   useEffect(()=>{
     if(tab==='final'&&sim){
-      const champ=sim.final.w;
-      if(champ&&champ!==confettiFiredForChamp){
-        setConfettiFiredForChamp(champ);
-        confettiFired=false; // reset so it fires for new sim
-        setTimeout(()=>fireConfetti(),400);
-      }
+      const ch=sim.final.w;
+      if(ch&&ch!==champShown){setChampShown(ch);_confettiFired=false;setTimeout(()=>fireConfetti(),500);}
     }
   },[tab,sim]);
 
+  const toggleTicket=useCallback((id)=>{
+    setMyGames(prev=>{const next=prev.includes(id)?prev.filter(x=>x!==id):[...prev,id];saveMyGames(next);return next;});
+  },[]);
+  const clearTickets=useCallback(()=>{setMyGames([]);saveMyGames([]);},[]);
+  const isMyTicket=useCallback((id)=>myGames.includes(id),[myGames]);
+
   if(!sim)return(
-    <div style={{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:C.gold}}>
-      <img src="./images/header-app.jpg" style={{width:"80%",maxWidth:320,borderRadius:12,objectFit:"contain"}} alt="Olivos Oracle"/>
-      <span style={{fontSize:14,letterSpacing:2,color:C.gold}}>Cargando...</span>
+    <div style={{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}}>
+      <img src="./images/header-app.jpg" style={{width:"80%",maxWidth:320,borderRadius:12}} alt="Olivos Oracle"/>
+      <span style={{fontSize:14,color:C.gold,letterSpacing:2}}>Cargando...</span>
     </div>
   );
 
   const curLv=LEVELS.find(l=>l.id===levelId);
   const TABS=[...t.tabIds.map((id,i)=>({id,label:t.tabs[i]}))];
-  if(isAdmin)TABS.push({id:'admin',label:'🔐 Admin'});
-
-  const circledList=[
-    {label:"Dieciseisavos · Los Ángeles",m:sim.r32.find(m=>m.id==="M84")},
-    {label:"Dieciseisavos · Ciudad de México",m:sim.r32.find(m=>m.id==="M79")},
-    {label:"Octavos · Ciudad de México",m:sim.r16.find(m=>m.id==="M92")},
-    {label:"Octavos · Atlanta",m:sim.r16.find(m=>m.id==="M95")},
-    {label:"Cuartos · Boston",m:sim.qf.find(m=>m.id==="M97")},
-    {label:"Semis · Atlanta",m:sim.sf.find(m=>m.id==="M102")},
-    {label:"🏆 Gran Final · East Rutherford NJ",m:sim.final},
-  ];
+  if(isAdmin)TABS.push({id:'admin',label:'🔐'});
 
   return(
     <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40}}>
 
       {/* HEADER IMAGE */}
       <div style={{background:"#000",borderBottom:`2px solid ${C.gold}`}}>
-        <img src="./images/header-app.jpg" style={{width:"100%",maxHeight:120,objectFit:"cover",objectPosition:"center",display:"block"}} alt="Olivos Oracle"/>
-
-        {/* Controls row */}
-        <div style={{padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <img src="./images/header-app.jpg" style={{width:"100%",maxHeight:110,objectFit:"cover",objectPosition:"center",display:"block"}} alt="Olivos Oracle"/>
+        <div style={{padding:"8px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <LiveBadge status={liveStatus} liveMatches={liveMatches} C={C} t={t}/>
-            {lastUpd&&<span style={{fontSize:8,color:C.muted}}>{t.dataUpdated}: {lastUpd}</span>}
+            {lastUpd&&<span style={{fontSize:8,color:C.muted}}>{t.dataUpdated} {lastUpd}</span>}
           </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {Object.keys(whatif).length>0&&<span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:10,padding:"2px 8px"}}>🔀 What-If</span>}
-            <button onClick={()=>setDark(d=>!d)} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:10}}>{dark?"☀️":"🌙"}</button>
-            <button onClick={()=>setLang(l=>l==='es'?'en':'es')} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.accent}`,background:`${C.accent}11`,color:C.accent,fontSize:10,fontWeight:"700"}}>{lang==='es'?'EN':'ES'}</button>
+          <div style={{display:"flex",gap:6}}>
+            {myGames.length>0&&<span style={{fontSize:9,background:`${C.myRed}22`,color:C.myRed,border:`1px solid ${C.myRed}`,borderRadius:10,padding:"2px 8px"}}>🎟️ {myGames.length}</span>}
+            {Object.keys(whatif).length>0&&<span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:10,padding:"2px 8px"}}>🔀</span>}
+            <button onClick={()=>setDark(d=>!d)} style={{padding:"3px 8px",borderRadius:14,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:10}}>{dark?"☀️":"🌙"}</button>
+            <button onClick={()=>setLang(l=>l==='es'?'en':'es')} style={{padding:"3px 8px",borderRadius:14,border:`1px solid ${C.accent}`,background:`${C.accent}11`,color:C.accent,fontSize:10,fontWeight:"700"}}>{lang==='es'?'EN':'ES'}</button>
           </div>
         </div>
-
-        {/* Champion bar */}
-        <div style={{padding:"8px 14px",background:`${C.gold}11`,borderTop:`1px solid ${C.goldDim}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
+        {/* Champion + resim */}
+        <div style={{padding:"8px 14px",background:`${C.gold}11`,borderTop:`1px solid ${C.goldDim}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
           <div>
             <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.champion}</div>
             <div style={{fontSize:18,fontWeight:"900",color:C.gold}}>{fl(sim.final.w)} {sim.final.w}</div>
-            <div style={{fontSize:8,color:C.muted}}>#{INTL_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
+            <div style={{fontSize:8,color:C.muted}}>#{FIFA_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null))} style={{padding:"5px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,fontSize:10,letterSpacing:1}}>🔄 {t.resim}</button>
+          <button onClick={()=>{setChampShown(null);setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null));}} style={{padding:"6px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,fontSize:10}}>🔄 {t.resim}</button>
+        </div>
+        {/* Level */}
+        <div style={{padding:"8px 14px 10px",borderTop:`1px solid ${C.border}`}}>
+          <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>{t.simLevel.toUpperCase()}</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {LEVELS.map(lv=>(<button key={lv.id} onClick={()=>setLevelId(lv.id)} style={{padding:"3px 7px",borderRadius:7,fontSize:9,background:levelId===lv.id?`${LEVEL_COLORS[lv.id]}22`:"transparent",color:levelId===lv.id?LEVEL_COLORS[lv.id]:C.muted,border:`1.5px solid ${levelId===lv.id?LEVEL_COLORS[lv.id]:C.border}`,fontWeight:levelId===lv.id?"700":"400"}}>{t.levels[lv.id]}</button>))}
           </div>
+          {curLv&&<div style={{marginTop:3,fontSize:8,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{t.levelDescs[levelId]}</div>}
         </div>
 
-        {/* Level selector */}
-        <div style={{padding:"8px 14px 10px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:6}}>{t.simLevel.toUpperCase()}</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {LEVELS.map(lv=>(
-              <button key={lv.id} onClick={()=>setLevelId(lv.id)} style={{padding:"4px 8px",borderRadius:7,fontSize:10,background:levelId===lv.id?`${LEVEL_COLORS[lv.id]}22`:"transparent",color:levelId===lv.id?LEVEL_COLORS[lv.id]:C.muted,border:`1.5px solid ${levelId===lv.id?LEVEL_COLORS[lv.id]:C.border}`,fontWeight:levelId===lv.id?"700":"400"}}>
-                {t.levels[lv.id]}
-              </button>
-            ))}
-          </div>
-          {curLv&&<div style={{marginTop:4,fontSize:8.5,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{t.levelDescs[levelId]}</div>}
+        {/* ── ENGINE + WHAT-IF ON TOP ── */}
+        <div style={{padding:"0 14px 12px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <button onClick={()=>setTab('engine')} style={{padding:"10px 8px",background:tab==='engine'?C.gold+"22":C.card,border:`1.5px solid ${tab==='engine'?C.gold:C.border}`,borderRadius:12,color:tab==='engine'?C.gold:C.muted,fontSize:11,fontWeight:tab==='engine'?"900":"400",textAlign:"center",lineHeight:1.4}}>
+            🧬<br/><span style={{fontSize:9}}>{t.engineTitle}</span>
+          </button>
+          <button onClick={()=>setTab('whatif')} style={{padding:"10px 8px",background:tab==='whatif'?`${C.blue}22`:C.card,border:`1.5px solid ${tab==='whatif'?C.blue:C.border}`,borderRadius:12,color:tab==='whatif'?C.blue:C.muted,fontSize:11,fontWeight:tab==='whatif'?"900":"400",textAlign:"center",lineHeight:1.4}}>
+            🔀<br/><span style={{fontSize:9}}>{t.whatifTitle}</span>
+          </button>
         </div>
       </div>
 
       {/* TABS */}
       <div style={{display:"flex",overflowX:"auto",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
-        {TABS.map(tb=>(<button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",color:tab===tb.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,borderBottom:tab===tb.id?`2px solid ${C.gold}`:"2px solid transparent",cursor:"pointer",fontWeight:tab===tb.id?"700":"400"}}>{tb.label}</button>))}
+        {TABS.map(tb=>(<button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",color:tab===tb.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,borderBottom:tab===tb.id?`2px solid ${C.gold}`:"2px solid transparent",cursor:"pointer",fontWeight:tab===tb.id?"700":"400",position:"relative"}}>
+          {tb.label}
+          {tb.id==='mytickets'&&myGames.length>0&&<span style={{position:"absolute",top:4,right:2,background:C.myRed,color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:8,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900"}}>{myGames.length}</span>}
+        </button>))}
       </div>
 
       <div style={{padding:"12px 14px"}}>
@@ -1080,50 +1052,54 @@ function App(){
               {[t.groupsAF,t.groupsGL].map((l,i)=>(<button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?C.gold+"11":"transparent",color:grpPage===i?C.gold:C.muted,fontSize:10}}>{l}</button>))}
               <span style={{fontSize:8,color:C.muted}}>{t.best3rd}: {sim.best8.map(x=>`${x.team.split(" ")[0]}(${x.group})`).join(", ")}</span>
             </div>
-            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g)).map(([g,data])=>(<GroupTable key={g} grp={g} data={data} C={C} t={t}/>))}
+            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g)).map(([g,data])=>(<GroupTable key={g} grp={g} data={data} C={C} t={t} isMyTicket={isMyTicket} toggleTicket={toggleTicket}/>))}
           </div>
         )}
 
-        {tab==='bracket'&&<VisualBracket sim={sim} C={C} t={t}/>}
+        {tab==='bracket'&&<VisualBracket sim={sim} isMyTicket={isMyTicket} C={C} t={t}/>}
 
-        {tab==='r32'&&(<div><div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 PARTIDOS · 28 JUN – 3 JUL</div><MatchGrid matches={sim.r32} circled={sim.CIRCLED} C={C} t={t}/></div>)}
+        {tab==='r32'&&(
+          <div>
+            <div style={{fontSize:8,color:C.muted,marginBottom:10}}>16 PARTIDOS · 28 JUN – 3 JUL · Toca para marcar 🎟️</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{sim.r32.map((m,i)=><MatchCard key={i} m={m} isMyTicket={isMyTicket} toggleTicket={toggleTicket} C={C} t={t}/>)}</div>
+          </div>
+        )}
 
-        {tab==='r16'&&(<div><div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 PARTIDOS · 4–7 JUL</div><MatchGrid matches={sim.r16} circled={sim.CIRCLED} C={C} t={t}/></div>)}
+        {tab==='r16'&&(
+          <div>
+            <div style={{fontSize:8,color:C.muted,marginBottom:10}}>8 PARTIDOS · 4–7 JUL · Toca para marcar 🎟️</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{sim.r16.map((m,i)=><MatchCard key={i} m={m} isMyTicket={isMyTicket} toggleTicket={toggleTicket} C={C} t={t}/>)}</div>
+          </div>
+        )}
 
         {tab==='qfsf'&&(
           <div>
-            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>CUARTOS DE FINAL · 9–10 JUL</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>{sim.qf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}</div>
-            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMIFINALES · 13–15 JUL</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{sim.sf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}</div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>CUARTOS · 9–10 JUL</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>{sim.qf.map((m,i)=><MatchCard key={i} m={m} isMyTicket={isMyTicket} toggleTicket={toggleTicket} C={C} t={t}/>)}</div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMIS · 13–15 JUL</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{sim.sf.map((m,i)=><MatchCard key={i} m={m} isMyTicket={isMyTicket} toggleTicket={toggleTicket} C={C} t={t}/>)}</div>
           </div>
         )}
 
         {tab==='final'&&(
           <div>
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"11px",marginBottom:12}}>
-              <div style={{fontSize:8.5,color:C.muted,letterSpacing:2,marginBottom:7}}>🥉 {t.thirdPlace} · {sim.bronze.venue} · 18 Jul</div>
-              <KOCard m={sim.bronze} circled={false} C={C}/>
+              <div style={{fontSize:8.5,color:C.muted,marginBottom:7}}>🥉 {t.thirdPlace} · {sim.bronze.venue} · 18 Jul</div>
+              <MatchCard m={sim.bronze} isMyTicket={isMyTicket} toggleTicket={toggleTicket} C={C} t={t}/>
             </div>
             <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:16,padding:"16px",boxShadow:`0 0 40px ${C.gold}44`,position:"relative",overflow:"hidden"}}>
               <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse at 50% 0%,${C.gold}18,transparent 70%)`,pointerEvents:"none"}}/>
-              <div style={{textAlign:"center",marginBottom:14}}>
-                <div style={{fontSize:9,color:C.gold,letterSpacing:5,fontWeight:"700"}}>🏆 {t.finalMatch}</div>
-                <div style={{fontSize:10,color:C.muted,marginTop:2}}>M104 · East Rutherford NJ · 19 Jul 2026</div>
-              </div>
+              <div style={{textAlign:"center",marginBottom:14}}><div style={{fontSize:9,color:C.gold,letterSpacing:5,fontWeight:"700"}}>🏆 {t.finalMatch}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>M104 · East Rutherford NJ · 19 Jul 2026</div></div>
               <div style={{display:"flex",justifyContent:"space-around",alignItems:"center"}}>
-                {[{t:sim.final.a,s:sim.final.sa},{t:sim.final.b,s:sim.final.sb}].map((side,i)=>{
-                  const isW=sim.final.w===side.t;
-                  return(
-                    <div key={i} style={{textAlign:"center",flex:1}}>
-                      <div style={{fontSize:48}}>{fl(side.t)}</div>
-                      <div style={{fontSize:9,color:C.muted}}>{t.rank} #{INTL_RANK[side.t]||"?"}</div>
-                      <div style={{fontSize:13,fontWeight:"700",color:isW?C.gold:C.muted,marginTop:2}}>{side.t}</div>
-                      <div style={{fontSize:28,fontWeight:"900",color:isW?C.gold:C.muted,marginTop:4}}>{side.s}</div>
-                      {isW&&<div style={{fontSize:9,color:C.gold,marginTop:3,letterSpacing:1}}>🏆 CAMPEÓN</div>}
-                    </div>
-                  );
-                })}
+                {[{t:sim.final.a,s:sim.final.sa},{t:sim.final.b,s:sim.final.sb}].map((side,i)=>{const isW=sim.final.w===side.t;return(
+                  <div key={i} style={{textAlign:"center",flex:1}}>
+                    <div style={{fontSize:48}}>{fl(side.t)}</div>
+                    <div style={{fontSize:9,color:C.muted}}>{t.rank} #{FIFA_RANK[side.t]||"?"}</div>
+                    <div style={{fontSize:13,fontWeight:"700",color:isW?C.gold:C.muted,marginTop:2}}>{side.t}</div>
+                    <div style={{fontSize:28,fontWeight:"900",color:isW?C.gold:C.muted,marginTop:4}}>{side.s}</div>
+                    {isW&&<div style={{fontSize:9,color:C.gold,marginTop:3}}>🏆 CAMPEÓN</div>}
+                  </div>
+                );})}
               </div>
               <div style={{marginTop:14,textAlign:"center",padding:"8px",background:C.gold+"18",borderRadius:10,border:`1px solid ${C.goldDim}`}}>
                 <div style={{fontSize:26}}>{fl(sim.final.w)}</div>
@@ -1134,46 +1110,18 @@ function App(){
           </div>
         )}
 
-        {tab==='circled'&&(
-          <div>
-            <div style={{fontSize:8.5,color:C.muted,textAlign:"center",marginBottom:12,letterSpacing:1}}>{t.myGames}</div>
-            {circledList.map(({label,m},i)=>{
-              const isFinal=m?.id==="M104";
-              return(
-                <div key={i} style={{background:isFinal?C.cardGold:C.card,border:`2px solid ${isFinal?C.gold:C.border}`,borderRadius:12,padding:"11px 13px",marginBottom:9,boxShadow:isFinal?`0 0 20px ${C.gold}44`:"none"}}>
-                  <div style={{fontSize:8.5,color:isFinal?C.gold:C.accent,fontWeight:"700",letterSpacing:2,marginBottom:7}}>{isFinal?"🏆":"🟣"} {label}</div>
-                  {[{t:m?.a,s:m?.sa,w:m?.w===m?.a},{t:m?.b,s:m?.sb,w:m?.w===m?.b}].map((row,j)=>(
-                    <div key={j} style={{display:"flex",alignItems:"center",gap:7,marginBottom:j===0?5:0}}>
-                      <span style={{fontSize:22}}>{fl(row.t)}</span>
-                      <span style={{fontSize:8.5,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
-                      <span style={{fontSize:13,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t||"TBD"}</span>
-                      <span style={{fontSize:18,fontWeight:"900",color:row.w?C.gold:"#888"}}>{row.s??"-"}</span>
-                    </div>
-                  ))}
-                  <div style={{marginTop:7,padding:"4px 9px",background:isFinal?C.gold+"18":C.green+"18",borderRadius:7,fontSize:10,color:isFinal?C.gold:C.green,fontWeight:"700"}}>
-                    {isFinal?"🏆":"✓"} {t.winner}: {fl(m?.w)} {m?.w}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
+        {tab==='mytickets'&&<MyTicketsTab sim={sim} myGames={myGames} toggleTicket={toggleTicket} clearTickets={clearTickets} C={C} t={t}/>}
         {tab==='engine'&&<EngineTab levelId={levelId} locked={locked} ls={ls} C={C} t={t}/>}
         {tab==='whatif'&&<WhatIfTab sim={sim} locked={locked} onWhatifChange={setWhatif} whatif={whatif} C={C} t={t}/>}
         {tab==='admin'&&isAdmin&&<AdminTab C={C} t={t}/>}
 
-        {/* SHARE + COLLECT sections — always visible below tabs */}
         <ShareSection C={C} t={t} sim={sim}/>
-
       </div>
 
-      {/* FOOTER */}
       <div style={{marginTop:20,padding:"12px 14px",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
         <img src="./images/Olivos_Oracle_rojo.png" style={{width:18,height:18,objectFit:"contain",opacity:0.4}} alt=""/>
         <span style={{fontSize:9,color:C.border,letterSpacing:2}}>OLIVOS ORACLE · WC2026 · SOLO SIMULACIÓN</span>
       </div>
-
     </div>
   );
 }
