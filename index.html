@@ -637,9 +637,9 @@ function EngineTab({levelId,locked,ls,C,t}){
   const[progress,setProgress]=useState(0);
   const[running,setRunning]=useState(false);
   const[view,setView]=useState('stage');
-  const[sortCol,setSortCol]=useState('win');
+  const[sortCol,setSortCol]=useState('winGroup');
   const[groupFilter,setGroupFilter]=useState('A');
-  const[stageFilter,setStageFilter]=useState('win');
+  const[stageFilter,setStageFilter]=useState('winGroup');
   const[runCount,setRunCount]=useState(0);
 
   const STAGES=[['win','🏆'],['final','Final'],['sf','Semis'],['qf','Cuartos'],['r16','Octavos'],['r32','Diec.'],['winGroup','1°Grp']];
@@ -664,8 +664,8 @@ function EngineTab({levelId,locked,ls,C,t}){
     setResults(r);setRunning(false);setRunCount(c=>c+1);
   };
 
-  const groupResults=useMemo(()=>results?results.filter(r=>r.group===groupFilter).sort((a,b)=>b[sortCol]-a[sortCol]):[],[results,groupFilter,sortCol]);
-  const stageResults=useMemo(()=>results?[...results].sort((a,b)=>b[stageFilter]-a[stageFilter]):[],[results,stageFilter]);
+  const groupResults=useMemo(()=>results?results.filter(r=>r.group===groupFilter).sort((a,b)=>b[sortCol]-a[sortCol]||b.r32-a.r32||b.r16-a.r16||b.qf-a.qf):[],[results,groupFilter,sortCol]);
+  const stageResults=useMemo(()=>results?[...results].sort((a,b)=>b[stageFilter]-a[stageFilter]||b.win-a.win||b.final-a.final||b.sf-a.sf):[],[results,stageFilter]);
 
   return(
     <div>
