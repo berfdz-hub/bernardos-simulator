@@ -4,13 +4,7 @@
   "type": "module",
   "description": "Data fetcher for Olivos Oracle",
   "main": "fetch-results.js",
-  "scripts": {
-    "fetch": "node fetch-results.js",
-    "test": "node fetch-results.js --dry-run"
-  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "node-fetch": "^3.3.2",
-    "ws": "^8.16.0"
+    "node-fetch": "^3.3.2"
   }
 }
