@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
@@ -11,11 +11,13 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a1a1a;font-family:Georgia,serif}
-button{font-family:Georgia,serif}
+button{font-family:Georgia,serif;cursor:pointer}
 table{border-collapse:collapse}
-/* Light mode overrides */
 body.light{background:#f0ede8}
-body.light #root{background:#f0ede8}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.live-pulse{animation:pulse 1.2s ease-in-out infinite}
+.spin{animation:spin 1s linear infinite}
 </style>
 </head>
 <body>
@@ -24,65 +26,148 @@ body.light #root{background:#f0ede8}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script type="text/babel">
-const{useState,useEffect,useCallback,useRef}=React;
+const{useState,useEffect,useCallback,useRef,useMemo}=React;
 
-// ─── SUPABASE CONFIG ─────────────────────────────────────────
-const SUPABASE_URL  = 'https://vbggmwixvtxbxxrpeimh.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZ2dtd2l4dnR4Ynh4cnBlaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDIyODMsImV4cCI6MjA5NTgxODI4M30.kesS2TNEPfH-XXIH_rOAnw9P9q39BCFIMTAh1nIExFA';
-
-async function supaFetch(path) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      headers: {
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Content-Type': 'application/json',
-      }
+// ─── SUPABASE ────────────────────────────────────────────────
+const SUPA_URL  = 'https://vbggmwixvtxbxxrpeimh.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiZ2dtd2l4dnR4Ynh4cnBlaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNDIyODMsImV4cCI6MjA5NTgxODI4M30.kesS2TNEPfH-XXIH_rOAnw9P9q39BCFIMTAh1nIExFA';
+async function supaFetch(path){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`}});
+    if(!r.ok)return null;
+    return await r.json();
+  }catch{return null;}
+}
+async function supaWrite(path,body,method='POST'){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{
+      method,headers:{'apikey':SUPA_ANON,'Authorization':`Bearer ${SUPA_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(body)
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
+    return r.ok;
+  }catch{return false;}
 }
 
-// ─── THEME ───────────────────────────────────────────────────
-const DARK = {
-  bg:'#1a1a1a', surface:'#242424', card:'#2a2a2a',
-  border:'#3a3a3a', gold:'#72CB28', goldDim:'#3a6614',
-  red:'#c0392b', green:'#72CB28', blue:'#4a9fd4',
-  text:'#e8e8e8', muted:'#888888', accent:'#72CB28',
-  headerBg:'linear-gradient(180deg,#242424,#1a1a1a)',
-  cardGold:'linear-gradient(135deg,#1e2a14,#0d1a08)',
-  olivos:'#72CB28',
-};
-const LIGHT = {
-  bg:'#f0ede8', surface:'#ffffff', card:'#f8f6f2',
-  border:'#d8d4cc', gold:'#5aaa18', goldDim:'#c8e8a8',
-  red:'#c0392b', green:'#5aaa18', blue:'#2471a3',
-  text:'#1a1a1a', muted:'#666666', accent:'#5aaa18',
-  headerBg:'linear-gradient(180deg,#ffffff,#f0ede8)',
-  cardGold:'linear-gradient(135deg,#f0f8e8,#e8f4d8)',
-  olivos:'#5aaa18',
+// ─── ADMIN ───────────────────────────────────────────────────
+const ADMIN_HASH = btoa('Fish_OlivosAdmin2026');
+function checkAdmin(){
+  const p=new URLSearchParams(window.location.search).get('admin');
+  return p && btoa(p+'_OlivosAdmin2026')===ADMIN_HASH;
+}
+
+// ─── I18N ────────────────────────────────────────────────────
+const T={
+  es:{
+    appName:'Predictor',appSub:'COPA DEL MUNDO 2026 · SIMULADOR',
+    champion:'Campeón Predicho',rank:'Rank',
+    liveData:'Datos en Vivo',cached:'En Caché',offline:'Sin Conexión',loading:'Cargando',
+    simLevel:'Nivel de Simulación',
+    levels:['','⭐ Más Probable','⭐⭐ Probable','⭐⭐⭐ Equilibrado','⭐⭐⭐⭐ Sorprendente','⭐⭐⭐⭐⭐ Caos'],
+    levelDescs:['','Rankings dominan. Sorpresas muy raras.','Los mejores equipos casi siempre ganan.','La mezcla perfecta de resultados realistas.','Sorpresas comunes. Los grandes pueden caer.','Todo es posible. Cualquier equipo puede ganar.'],
+    resim:'Resimular',share:'Compartir',shared:'¡Copiado!',
+    tabs:['👥 Grupos','🏟️ Llave','⚔️ Dieciseisavos','🔵 Octavos','🔥 Cuartos y Semis','🥇 Final','🟣 Mis Partidos','🧬 Motor Olivos','🔀 ¿Qué Pasa Si?'],
+    tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
+    groupsAF:'Grupos A-F',groupsGL:'Grupos G-L',
+    best3rd:'Mejores 3ros',
+    matchResults:'RESULTADOS',advances:'avanza',
+    thirdPlace:'TERCER LUGAR',finalMatch:'LA GRAN FINAL',worldChamp:'CAMPEÓN MUNDIAL 2026',
+    myGames:'TUS 7 PARTIDOS MARCADOS',winner:'Ganador',
+    engineTitle:'MOTOR OLIVOS',
+    engineSub:'Simulador de Torneo Probabilístico',
+    engineDesc:'Ejecuta 10,000 simulaciones completas del torneo en segundos para calcular la probabilidad real de cada selección en cada etapa. Construido sobre rankings oficiales, forma reciente y la estructura oficial del torneo.',
+    runEngine:'Ejecutar 10,000 Simulaciones',
+    engineRunning:'Simulando',engineDone:'Simulación completada',
+    colTeam:'Selección',colGroup:'Grupo',colWinGroup:'Gana Grupo',colR32:'Diec.',colR16:'Octavos',colQF:'Cuartos',colSF:'Semis',colFinal:'Final',colWin:'🏆 Campeón',
+    sortBy:'Ordenar por',
+    whatifTitle:'¿QUÉ PASA SI?',
+    whatifDesc:'Ajusta los resultados de partidos futuros. Los resultados reales bloqueados no se pueden cambiar. Toca cualquier partido futuro para definir tu marcador. El bracket se recalcula al instante.',
+    whatifLocked:'🔒 Bloqueado — resultado real',
+    whatifCustom:'Tu marcador',
+    whatifReset:'Restablecer Todo',
+    whatifApply:'Aplicar',
+    liveNow:'EN VIVO AHORA',
+    adminTitle:'PANEL DE ADMINISTRACIÓN',
+    adminConflicts:'Conflictos Pendientes',
+    adminLock:'Bloquear',adminUnlock:'Desbloquear',adminOverride:'Corregir Marcador',
+    adminSave:'Guardar',adminCancel:'Cancelar',
+    dataUpdated:'Actualizado',
+    zoom:'ZOOM',
+  },
+  en:{
+    appName:'Predictor',appSub:'WORLD CUP 2026 · SIMULATOR',
+    champion:'Predicted Champion',rank:'Rank',
+    liveData:'Live Data',cached:'Cached',offline:'Offline',loading:'Loading',
+    simLevel:'Simulation Level',
+    levels:['','⭐ Most Likely','⭐⭐ Probable','⭐⭐⭐ Balanced','⭐⭐⭐⭐ Surprising','⭐⭐⭐⭐⭐ Chaos'],
+    levelDescs:['','Rankings dominate. Upsets very rare.','Better teams mostly win.','Realistic mix of results.','Major upsets common.','Anything goes.'],
+    resim:'Resimulate',share:'Share',shared:'Copied!',
+    tabs:['👥 Groups','🏟️ Bracket','⚔️ R32','🔵 R16','🔥 QF/SF','🥇 Final','🟣 My Games','🧬 Olivos Engine','🔀 What-If'],
+    tabIds:['groups','bracket','r32','r16','qfsf','final','circled','engine','whatif'],
+    groupsAF:'Groups A-F',groupsGL:'Groups G-L',
+    best3rd:'Best 3rd Place',
+    matchResults:'RESULTS',advances:'advances',
+    thirdPlace:'THIRD PLACE',finalMatch:'THE FINAL',worldChamp:'WORLD CHAMPION 2026',
+    myGames:'YOUR 7 CIRCLED GAMES',winner:'Winner',
+    engineTitle:'OLIVOS ENGINE',
+    engineSub:'Probabilistic Tournament Simulator',
+    engineDesc:'Runs 10,000 complete tournament simulations in seconds to calculate each team\'s real probability of advancing at every stage. Built on official rankings, recent form, and the official tournament structure.',
+    runEngine:'Run 10,000 Simulations',
+    engineRunning:'Simulating',engineDone:'Simulation complete',
+    colTeam:'Team',colGroup:'Group',colWinGroup:'Win Group',colR32:'R32',colR16:'R16',colQF:'QF',colSF:'SF',colFinal:'Final',colWin:'🏆 Champion',
+    sortBy:'Sort by',
+    whatifTitle:'WHAT-IF MODE',
+    whatifDesc:'Adjust future match outcomes. Real locked results cannot be changed. Tap any future match to set your own score. Bracket recalculates instantly.',
+    whatifLocked:'🔒 Locked — real result',
+    whatifCustom:'Your score',
+    whatifReset:'Reset All',
+    whatifApply:'Apply',
+    liveNow:'LIVE NOW',
+    adminTitle:'ADMIN PANEL',
+    adminConflicts:'Pending Conflicts',
+    adminLock:'Lock',adminUnlock:'Unlock',adminOverride:'Override Score',
+    adminSave:'Save',adminCancel:'Cancel',
+    dataUpdated:'Updated',
+    zoom:'ZOOM',
+  }
 };
 
-// ─── OLIVOS LOGO SVG ─────────────────────────────────────────
-function OlivosLogo({ size=32, color='#72CB28' }) {
-  return (
+// ─── THEME ───────────────────────────────────────────────────
+const DARK={
+  bg:'#1a1a1a',surface:'#242424',card:'#2a2a2a',
+  border:'#3a3a3a',gold:'#72CB28',goldDim:'#3a6614',
+  red:'#e05555',green:'#72CB28',blue:'#4a9fd4',
+  text:'#e8e8e8',muted:'#888888',accent:'#72CB28',
+  headerBg:'linear-gradient(180deg,#242424,#1a1a1a)',
+  cardGold:'linear-gradient(135deg,#1a2a10,#0d1a06)',
+  olivos:'#72CB28',liveDot:'#ff4444',
+};
+const LIGHT={
+  bg:'#f0ede8',surface:'#ffffff',card:'#f8f6f2',
+  border:'#d8d4cc',gold:'#5aaa18',goldDim:'#b8d898',
+  red:'#c0392b',green:'#5aaa18',blue:'#2471a3',
+  text:'#1a1a1a',muted:'#666666',accent:'#5aaa18',
+  headerBg:'linear-gradient(180deg,#ffffff,#f0ede8)',
+  cardGold:'linear-gradient(135deg,#f0f8e8,#e0f0d0)',
+  olivos:'#5aaa18',liveDot:'#e03333',
+};
+
+// ─── OLIVOS LOGO ─────────────────────────────────────────────
+function OlivosLogo({size=32,color='#72CB28'}){
+  return(
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="50" cy="50" r="46" stroke={color} strokeWidth="5" fill="none"/>
       <circle cx="50" cy="50" r="36" stroke={color} strokeWidth="2" fill="none" opacity="0.4"/>
-      <path d="M30 50 C30 35 40 25 50 25 C60 25 70 35 70 50 C70 65 60 75 50 75 C40 75 30 65 30 50Z"
-        stroke={color} strokeWidth="3" fill="none"/>
+      <path d="M30 50 C30 35 40 25 50 25 C60 25 70 35 70 50 C70 65 60 75 50 75 C40 75 30 65 30 50Z" stroke={color} strokeWidth="3" fill="none"/>
       <path d="M50 25 L50 75" stroke={color} strokeWidth="2.5" opacity="0.6"/>
       <path d="M30 50 L70 50" stroke={color} strokeWidth="2.5" opacity="0.6"/>
       <circle cx="50" cy="50" r="5" fill={color}/>
-      <text x="50" y="94" textAnchor="middle" fontSize="9" fontFamily="Georgia,serif"
-        fontWeight="700" fill={color} letterSpacing="3">OLIVOS</text>
+      <text x="50" y="94" textAnchor="middle" fontSize="9" fontFamily="Georgia,serif" fontWeight="700" fill={color} letterSpacing="3">OLIVOS</text>
     </svg>
   );
 }
 
-// ─── REAL INTL RANKINGS Apr 2026 ─────────────────────────────
-const FIFA_RANK = {
+// ─── RANKINGS & DATA ─────────────────────────────────────────
+const INTL_RANK={
   Mexico:15,"South Africa":60,"Korea Republic":22,Czechia:43,
   Canada:30,"Bosnia & Herzegovina":66,Qatar:56,Switzerland:19,
   Brazil:7,Morocco:8,Haiti:83,Scotland:40,
@@ -96,17 +181,7 @@ const FIFA_RANK = {
   Portugal:5,"Congo DR":48,Uzbekistan:50,Colombia:13,
   England:4,Croatia:11,Ghana:74,Panama:34,
 };
-
-const LEVELS = [
-  { id:1, label:"⭐ Most Likely",      desc:"Rankings dominate. Upsets are very rare.", variance:4,  bias:0.85 },
-  { id:2, label:"⭐⭐ Probable",        desc:"Better teams mostly win. Occasional upsets.", variance:10, bias:0.72 },
-  { id:3, label:"⭐⭐⭐ Balanced",      desc:"The sweet spot - realistic mix of results.", variance:18, bias:0.60 },
-  { id:4, label:"⭐⭐⭐⭐ Surprising",  desc:"Major upsets common. Giants can fall.", variance:28, bias:0.52 },
-  { id:5, label:"⭐⭐⭐⭐⭐ Chaos",     desc:"Anything goes. Any team can beat anyone.", variance:42, bias:0.50 },
-];
-const LEVEL_COLORS = ["","#72CB28","#8BC34A","#4a9fd4","#FF9800","#f44336"];
-
-const GROUPS = {
+const GROUPS={
   A:["Mexico","South Africa","Korea Republic","Czechia"],
   B:["Canada","Bosnia & Herzegovina","Qatar","Switzerland"],
   C:["Brazil","Morocco","Haiti","Scotland"],
@@ -120,8 +195,7 @@ const GROUPS = {
   K:["Portugal","Congo DR","Uzbekistan","Colombia"],
   L:["England","Croatia","Ghana","Panama"],
 };
-
-const FLAGS = {
+const FLAGS={
   Mexico:"🇲🇽","South Africa":"🇿🇦","Korea Republic":"🇰🇷",Czechia:"🇨🇿",
   Canada:"🇨🇦","Bosnia & Herzegovina":"🇧🇦",Qatar:"🇶🇦",Switzerland:"🇨🇭",
   Brazil:"🇧🇷",Morocco:"🇲🇦",Haiti:"🇭🇹",Scotland:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
@@ -135,28 +209,25 @@ const FLAGS = {
   Portugal:"🇵🇹","Congo DR":"🇨🇩",Uzbekistan:"🇺🇿",Colombia:"🇨🇴",
   England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦",
 };
-
-const GROUP_VENUES = {
-  A:"Mexico City / Guadalajara", B:"Toronto / San Francisco",
-  C:"Boston / New York",         D:"Los Angeles / San Francisco",
-  E:"Houston / Kansas City",     F:"Seattle / Vancouver",
-  G:"Atlanta / Miami",           H:"Houston / Kansas City",
-  I:"Boston / Kansas City",      J:"Dallas / Miami",
-  K:"Philadelphia / Toronto",    L:"Boston / Atlanta",
+const GROUP_VENUES={
+  A:"Ciudad de México / Guadalajara",B:"Toronto / San Francisco",
+  C:"Boston / Nueva York",D:"Los Ángeles / San Francisco",
+  E:"Houston / Kansas City",F:"Seattle / Vancouver",
+  G:"Atlanta / Miami",H:"Houston / Kansas City",
+  I:"Boston / Kansas City",J:"Dallas / Miami",
+  K:"Filadelfia / Toronto",L:"Boston / Atlanta",
 };
-
-const KO_VENUES = {
-  M73:"Los Angeles",  M74:"Boston",     M75:"Guadalajara", M76:"Houston",
-  M77:"New Jersey",   M78:"Dallas",     M79:"Mexico City", M80:"Atlanta",
-  M81:"San Francisco",M82:"Seattle",    M83:"Toronto",     M84:"Los Angeles",
-  M85:"Vancouver",    M86:"Miami",      M87:"Kansas City", M88:"Dallas",
-  M89:"Houston",      M90:"Philadelphia",M91:"New Jersey", M92:"Mexico City",
-  M93:"Seattle",      M94:"Dallas",     M95:"Atlanta",     M96:"Vancouver",
-  M97:"Boston",       M98:"Seattle",    M99:"New Jersey",  M100:"Dallas",
-  M101:"Dallas",      M102:"Atlanta",   M103:"Miami",      M104:"East Rutherford NJ",
+const KO_VENUES={
+  M73:"Los Ángeles",M74:"Boston",M75:"Guadalajara",M76:"Houston",
+  M77:"Nueva Jersey",M78:"Dallas",M79:"Ciudad de México",M80:"Atlanta",
+  M81:"San Francisco",M82:"Seattle",M83:"Toronto",M84:"Los Ángeles",
+  M85:"Vancouver",M86:"Miami",M87:"Kansas City",M88:"Dallas",
+  M89:"Houston",M90:"Filadelfia",M91:"Nueva Jersey",M92:"Ciudad de México",
+  M93:"Seattle",M94:"Dallas",M95:"Atlanta",M96:"Vancouver",
+  M97:"Boston",M98:"Seattle",M99:"Nueva Jersey",M100:"Dallas",
+  M101:"Dallas",M102:"Atlanta",M103:"Miami",M104:"East Rutherford NJ",
 };
-
-const COMBOS = {
+const COMBOS={
   "EFGHIJKL":"E,J,I,F,H,G,L,K","DFGHIJKL":"H,G,I,D,J,F,L,K","DEGHIJKL":"E,J,I,D,H,G,L,K",
   "DEFHIJKL":"E,J,I,D,H,F,L,K","DEFGIJKL":"E,G,I,D,J,F,L,K","DEFGHJKL":"E,G,J,D,H,F,L,K",
   "DEFGHIKL":"E,G,I,D,H,F,L,K","DEFGHIJL":"E,G,J,D,H,F,L,I","DEFGHIJK":"E,G,J,D,H,F,I,K",
@@ -185,187 +256,170 @@ const COMBOS = {
   "BDEFGHKL":"E,G,B,D,H,F,L,K","BDEFGHJL":"H,G,B,D,J,F,L,E","BDEFGHJK":"H,G,B,D,J,F,E,K",
   "BDEFGHIL":"H,G,B,D,J,F,L,I","BDEFGHIK":"E,G,B,D,H,F,I,K","BDEFGHIJ":"E,G,B,D,H,F,I,J",
 };
+function parseCombo(raw){const p=raw.split(",");return{m79:p[0],m85:p[1],m81:p[2],m74:p[3],m82:p[4],m77:p[5],m87:p[6],m80:p[7]};}
+function rankToStr(r){return Math.max(20,Math.round(99-(r-1)*0.62));}
+const BASE_STR={};
+Object.entries(INTL_RANK).forEach(([t,r])=>{BASE_STR[t]=rankToStr(r);});
+const fl=t=>FLAGS[t]||"🏳️";
+const LEVELS=[
+  {id:1,variance:4,bias:0.85},{id:2,variance:10,bias:0.72},
+  {id:3,variance:18,bias:0.60},{id:4,variance:28,bias:0.52},{id:5,variance:42,bias:0.50},
+];
+const LEVEL_COLORS=["","#72CB28","#8BC34A","#4a9fd4","#FF9800","#f44336"];
+const CIRCLED_IDS=new Set(["M79","M84","M92","M95","M97","M102","M104"]);
 
-function parseCombo(raw) {
-  const p = raw.split(",");
-  return { m79:p[0], m85:p[1], m81:p[2], m74:p[3], m82:p[4], m77:p[5], m87:p[6], m80:p[7] };
+// ─── SIM ENGINE ───────────────────────────────────────────────
+function getStr(t,ls){
+  const b=BASE_STR[t]||45;
+  if(!ls||!ls[t])return b;
+  return Math.max(10,Math.min(99,b+(ls[t].form_score||0)));
 }
-
-function rankToStr(rank) {
-  return Math.max(20, Math.round(99 - (rank - 1) * 0.62));
+function simScore(tA,tB,v,ls){
+  const sa=getStr(tA,ls),sb=getStr(tB,ls),diff=sa-sb;
+  const n=()=>(Math.random()+Math.random()+Math.random()-1.5)*v*0.07;
+  return[Math.max(0,Math.round(1.2+diff*0.035+n())),Math.max(0,Math.round(1.2-diff*0.035+n()))];
 }
-const BASE_STR = {};
-Object.entries(FIFA_RANK).forEach(([t,r]) => { BASE_STR[t] = rankToStr(r); });
-
-// ─── SIMULATION ENGINE ───────────────────────────────────────
-function getStrength(team, liveStrengths) {
-  const base = BASE_STR[team] || 45;
-  if (!liveStrengths || !liveStrengths[team]) return base;
-  const form = liveStrengths[team].form_score || 0;
-  return Math.max(10, Math.min(99, base + form));
+function simKO(tA,tB,v,bias,ls){
+  if(!tA||!tB||tA===tB)return{a:tA||"TBD",b:tB||"TBD",sa:0,sb:0,w:tA||tB};
+  let[sa,sb]=simScore(tA,tB,v,ls);
+  if(sa===sb){const sA=getStr(tA,ls),sB=getStr(tB,ls),p=bias*(sA/(sA+sB))+(1-bias)*0.5;if(Math.random()<p)sa++;else sb++;}
+  return{a:tA,b:tB,sa,sb,w:sa>sb?tA:tB};
 }
-
-function simScore(tA, tB, variance, liveStrengths) {
-  const sa = getStrength(tA, liveStrengths), sb = getStrength(tB, liveStrengths);
-  const diff = sa - sb;
-  const noise = () => (Math.random()+Math.random()+Math.random()-1.5) * variance * 0.07;
-  const ag = Math.max(0, Math.round(1.2 + diff*0.035 + noise()));
-  const bg = Math.max(0, Math.round(1.2 - diff*0.035 + noise()));
-  return [ag, bg];
-}
-
-function simKO(tA, tB, variance, bias, liveStrengths) {
-  if (!tA || !tB || tA === tB) return { a:tA||"TBD", b:tB||"TBD", sa:0, sb:0, w:tA||tB };
-  let [sa, sb] = simScore(tA, tB, variance, liveStrengths);
-  if (sa === sb) {
-    const strA = getStrength(tA, liveStrengths), strB = getStrength(tB, liveStrengths);
-    const pA = bias*(strA)/((strA)+(strB)) + (1-bias)*0.5;
-    if (Math.random() < pA) sa++; else sb++;
-  }
-  return { a:tA, b:tB, sa, sb, w:sa>sb?tA:tB };
-}
-
-function simGroup(teams, variance, bias, lockedResults, liveStrengths) {
-  const pts={}, gf={}, ga={}, wins={}, draws={}, losses={};
-  teams.forEach(t => { pts[t]=0; gf[t]=0; ga[t]=0; wins[t]=0; draws[t]=0; losses[t]=0; });
-  const matches = [];
-
-  for (let i=0; i<teams.length; i++) {
-    for (let j=i+1; j<teams.length; j++) {
-      const ta=teams[i], tb=teams[j];
-      let sa, sb, isLocked = false;
-
-      // Check if this match has a locked real result
-      const lockKey = `${ta}|${tb}`;
-      const lockKeyRev = `${tb}|${ta}`;
-      if (lockedResults && lockedResults[lockKey]) {
-        sa = lockedResults[lockKey].home; sb = lockedResults[lockKey].away;
-        isLocked = true;
-      } else if (lockedResults && lockedResults[lockKeyRev]) {
-        sb = lockedResults[lockKeyRev].home; sa = lockedResults[lockKeyRev].away;
-        isLocked = true;
-      } else {
-        [sa, sb] = simScore(ta, tb, variance, liveStrengths);
-      }
-
-      gf[ta]+=sa; ga[ta]+=sb; gf[tb]+=sb; ga[tb]+=sa;
-      if (sa>sb)      { pts[ta]+=3; wins[ta]++; losses[tb]++; }
-      else if (sb>sa) { pts[tb]+=3; wins[tb]++; losses[ta]++; }
-      else            { pts[ta]++; pts[tb]++; draws[ta]++; draws[tb]++; }
-      matches.push({ a:ta, b:tb, sa, sb, locked:isLocked });
+function simGroup(teams,v,bias,locked,ls,whatif){
+  const pts={},gf={},ga={},wins={},draws={},losses={};
+  teams.forEach(t=>{pts[t]=0;gf[t]=0;ga[t]=0;wins[t]=0;draws[t]=0;losses[t]=0;});
+  const matches=[];
+  for(let i=0;i<teams.length;i++){
+    for(let j=i+1;j<teams.length;j++){
+      const ta=teams[i],tb=teams[j];
+      let sa,sb,isLocked=false,isWhatif=false;
+      const k=`${ta}|${tb}`,kr=`${tb}|${ta}`;
+      if(locked&&locked[k]){sa=locked[k].home;sb=locked[k].away;isLocked=true;}
+      else if(locked&&locked[kr]){sb=locked[kr].home;sa=locked[kr].away;isLocked=true;}
+      else if(whatif&&whatif[k]){sa=whatif[k].home;sb=whatif[k].away;isWhatif=true;}
+      else if(whatif&&whatif[kr]){sb=whatif[kr].home;sa=whatif[kr].away;isWhatif=true;}
+      else{[sa,sb]=simScore(ta,tb,v,ls);}
+      gf[ta]+=sa;ga[ta]+=sb;gf[tb]+=sb;ga[tb]+=sa;
+      if(sa>sb){pts[ta]+=3;wins[ta]++;losses[tb]++;}
+      else if(sb>sa){pts[tb]+=3;wins[tb]++;losses[ta]++;}
+      else{pts[ta]++;pts[tb]++;draws[ta]++;draws[tb]++;}
+      matches.push({a:ta,b:tb,sa,sb,locked:isLocked,whatif:isWhatif});
     }
   }
-
-  const gd = t => gf[t]-ga[t];
-  const sorted = [...teams].sort((tx,ty) =>
-    (pts[ty]-pts[tx]) || (gd(ty)-gd(tx)) || (gf[ty]-gf[tx]) ||
-    ((getStrength(ty,liveStrengths))-(getStrength(tx,liveStrengths)))
-  );
-  return { p1:sorted[0], p2:sorted[1], p3:sorted[2], p4:sorted[3], pts, gf, ga, wins, draws, losses, matches };
+  const gd=t=>gf[t]-ga[t];
+  const sorted=[...teams].sort((tx,ty)=>(pts[ty]-pts[tx])||(gd(ty)-gd(tx))||(gf[ty]-gf[tx])||((getStr(ty,ls))-(getStr(tx,ls))));
+  return{p1:sorted[0],p2:sorted[1],p3:sorted[2],p4:sorted[3],pts,gf,ga,wins,draws,losses,matches};
+}
+function runSim(levelId,locked,ls,whatif){
+  const lv=LEVELS.find(l=>l.id===levelId)||LEVELS[2];
+  const{variance:v,bias}=lv;
+  const gr={};
+  Object.entries(GROUPS).forEach(([g,teams])=>{gr[g]=simGroup(teams,v,bias,locked,ls,whatif);});
+  const allT=Object.entries(gr).map(([g,r])=>({group:g,team:r.p3,pts:r.pts[r.p3],gd:r.gf[r.p3]-r.ga[r.p3],gf:r.gf[r.p3]}))
+    .sort((tx,ty)=>(ty.pts-tx.pts)||(ty.gd-tx.gd)||(ty.gf-tx.gf)||((getStr(ty.team,ls))-(getStr(tx.team,ls))));
+  const best8=allT.slice(0,8);
+  const t3={};best8.forEach(x=>{t3[x.group]=x.team;});
+  const key=[...best8.map(x=>x.group)].sort().join("");
+  const combo=COMBOS[key]?parseCombo(COMBOS[key]):null;
+  const used=new Set();
+  const s3=g=>{const t=t3[g];if(t&&!used.has(t)){used.add(t);return t;}for(const x of best8){if(!used.has(x.team)){used.add(x.team);return x.team;}}return"TBD";};
+  const s3f=pool=>{for(const g of pool.split("")){const t=t3[g];if(t&&!used.has(t)){used.add(t);return t;}}for(const x of best8){if(!used.has(x.team)){used.add(x.team);return x.team;}}return"TBD";};
+  const opp=combo
+    ?{m74:s3(combo.m74),m77:s3(combo.m77),m79:s3(combo.m79),m80:s3(combo.m80),m81:s3(combo.m81),m82:s3(combo.m82),m85:s3(combo.m85),m87:s3(combo.m87)}
+    :{m74:s3f("ABCDF"),m77:s3f("CDFGH"),m79:s3f("CEFHI"),m80:s3f("EHIJK"),m81:s3f("BEFIJ"),m82:s3f("AEHIJ"),m85:s3f("EFGIJ"),m87:s3f("DEIJL")};
+  const mk=(id,tA,tB)=>({...simKO(tA,tB,v,bias,ls),id,venue:KO_VENUES[id]||""});
+  const r32=[
+    mk("M73",gr.A.p2,gr.B.p2),mk("M74",gr.E.p1,opp.m74),mk("M75",gr.F.p1,gr.C.p2),mk("M76",gr.C.p1,gr.F.p2),
+    mk("M77",gr.I.p1,opp.m77),mk("M78",gr.E.p2,gr.I.p2),mk("M79",gr.A.p1,opp.m79),mk("M80",gr.L.p1,opp.m80),
+    mk("M81",gr.D.p1,opp.m81),mk("M82",gr.G.p1,opp.m82),mk("M83",gr.K.p2,gr.L.p2),mk("M84",gr.H.p1,gr.J.p2),
+    mk("M85",gr.B.p1,opp.m85),mk("M86",gr.J.p1,gr.H.p2),mk("M87",gr.K.p1,opp.m87),mk("M88",gr.D.p2,gr.G.p2),
+  ];
+  const W={};r32.forEach(m=>{W[m.id]=m.w;});
+  const r16=[
+    mk("M89",W.M73,W.M75),mk("M90",W.M74,W.M77),mk("M91",W.M76,W.M78),mk("M92",W.M79,W.M80),
+    mk("M93",W.M81,W.M82),mk("M94",W.M83,W.M84),mk("M95",W.M86,W.M88),mk("M96",W.M85,W.M87),
+  ];
+  r16.forEach(m=>{W[m.id]=m.w;});
+  const qf=[mk("M97",W.M89,W.M90),mk("M98",W.M91,W.M92),mk("M99",W.M93,W.M94),mk("M100",W.M95,W.M96)];
+  qf.forEach(m=>{W[m.id]=m.w;});
+  const sf=[mk("M101",W.M97,W.M98),mk("M102",W.M99,W.M100)];
+  sf.forEach(m=>{W[m.id]=m.w;});
+  const sf1l=sf[0].a===sf[0].w?sf[0].b:sf[0].a;
+  const sf2l=sf[1].a===sf[1].w?sf[1].b:sf[1].a;
+  const bronze=mk("M103",sf1l,sf2l);
+  const final=mk("M104",W.M101,W.M102);
+  return{gr,best8,r32,r16,qf,sf,bronze,final,CIRCLED:CIRCLED_IDS};
 }
 
-function runSim(levelId, lockedResults, liveStrengths) {
-  const lv = LEVELS.find(l => l.id===levelId) || LEVELS[2];
-  const { variance, bias } = lv;
-
-  const gr = {};
-  Object.entries(GROUPS).forEach(([g,teams]) => {
-    gr[g] = simGroup(teams, variance, bias, lockedResults, liveStrengths);
+// ─── OLIVOS ENGINE (10K sims) ─────────────────────────────────
+function runEngine(levelId,locked,ls,onProgress){
+  return new Promise(resolve=>{
+    const N=10000;
+    const counts={};
+    const allTeams=Object.values(GROUPS).flat();
+    allTeams.forEach(t=>{counts[t]={winGroup:0,r32:0,r16:0,qf:0,sf:0,final:0,win:0,total:N};});
+    let i=0;
+    const BATCH=200;
+    function runBatch(){
+      const end=Math.min(i+BATCH,N);
+      for(;i<end;i++){
+        const s=runSim(levelId,locked,ls,null);
+        Object.entries(s.gr).forEach(([g,d])=>{
+          counts[d.p1].winGroup++;
+          counts[d.p2].winGroup++;
+        });
+        s.r32.forEach(m=>{counts[m.w]&&counts[m.w].r32++;});
+        s.r16.forEach(m=>{counts[m.w]&&counts[m.w].r16++;});
+        s.qf.forEach(m=>{counts[m.w]&&counts[m.w].qf++;});
+        s.sf.forEach(m=>{counts[m.w]&&counts[m.w].sf++;});
+        counts[s.final.a]&&counts[s.final.a].final++;
+        counts[s.final.b]&&counts[s.final.b].final++;
+        counts[s.final.w]&&counts[s.final.w].win++;
+      }
+      onProgress(Math.round((i/N)*100));
+      if(i<N){setTimeout(runBatch,0);}
+      else{
+        const results=allTeams.map(t=>({
+          team:t,
+          group:Object.entries(GROUPS).find(([,ts])=>ts.includes(t))?.[0]||'',
+          winGroup:Math.round(counts[t].winGroup/N*100),
+          r32:Math.round(counts[t].r32/N*100),
+          r16:Math.round(counts[t].r16/N*100),
+          qf:Math.round(counts[t].qf/N*100),
+          sf:Math.round(counts[t].sf/N*100),
+          final:Math.round(counts[t].final/N*100),
+          win:Math.round(counts[t].win/N*100),
+        }));
+        resolve(results);
+      }
+    }
+    setTimeout(runBatch,0);
   });
-
-  const allThirds = Object.entries(gr).map(([g,r]) => ({
-    group:g, team:r.p3, pts:r.pts[r.p3], gd:r.gf[r.p3]-r.ga[r.p3], gf:r.gf[r.p3]
-  })).sort((tx,ty) =>
-    (ty.pts-tx.pts)||(ty.gd-tx.gd)||(ty.gf-tx.gf)||
-    ((getStrength(ty.team,liveStrengths))-(getStrength(tx.team,liveStrengths)))
-  );
-  const best8 = allThirds.slice(0,8);
-  const t3 = {}; best8.forEach(x => { t3[x.group]=x.team; });
-  const key = [...best8.map(x=>x.group)].sort().join("");
-  const combo = COMBOS[key] ? parseCombo(COMBOS[key]) : null;
-
-  const t3used = new Set();
-  const safe3 = g => {
-    const t=t3[g]; if(t&&!t3used.has(t)){t3used.add(t);return t;}
-    for(const x of best8){if(!t3used.has(x.team)){t3used.add(x.team);return x.team;}} return "TBD";
-  };
-  const safe3fb = pool => {
-    for(const g of pool.split("")){const t=t3[g];if(t&&!t3used.has(t)){t3used.add(t);return t;}}
-    for(const x of best8){if(!t3used.has(x.team)){t3used.add(x.team);return x.team;}} return "TBD";
-  };
-
-  const opp = combo
-    ? {m74:safe3(combo.m74),m77:safe3(combo.m77),m79:safe3(combo.m79),m80:safe3(combo.m80),m81:safe3(combo.m81),m82:safe3(combo.m82),m85:safe3(combo.m85),m87:safe3(combo.m87)}
-    : {m74:safe3fb("ABCDF"),m77:safe3fb("CDFGH"),m79:safe3fb("CEFHI"),m80:safe3fb("EHIJK"),m81:safe3fb("BEFIJ"),m82:safe3fb("AEHIJ"),m85:safe3fb("EFGIJ"),m87:safe3fb("DEIJL")};
-
-  const mk = (id, tA, tB) => {
-    const m=simKO(tA,tB,variance,bias,liveStrengths);
-    return {...m,id,venue:KO_VENUES[id]||"TBD"};
-  };
-
-  const r32 = [
-    mk("M73",gr.A.p2,gr.B.p2), mk("M74",gr.E.p1,opp.m74), mk("M75",gr.F.p1,gr.C.p2), mk("M76",gr.C.p1,gr.F.p2),
-    mk("M77",gr.I.p1,opp.m77), mk("M78",gr.E.p2,gr.I.p2), mk("M79",gr.A.p1,opp.m79), mk("M80",gr.L.p1,opp.m80),
-    mk("M81",gr.D.p1,opp.m81), mk("M82",gr.G.p1,opp.m82), mk("M83",gr.K.p2,gr.L.p2), mk("M84",gr.H.p1,gr.J.p2),
-    mk("M85",gr.B.p1,opp.m85), mk("M86",gr.J.p1,gr.H.p2), mk("M87",gr.K.p1,opp.m87), mk("M88",gr.D.p2,gr.G.p2),
-  ];
-  const W = {}; r32.forEach(m => { W[m.id]=m.w; });
-
-  const r16 = [
-    mk("M89",W.M73,W.M75), mk("M90",W.M74,W.M77), mk("M91",W.M76,W.M78), mk("M92",W.M79,W.M80),
-    mk("M93",W.M81,W.M82), mk("M94",W.M83,W.M84), mk("M95",W.M86,W.M88), mk("M96",W.M85,W.M87),
-  ];
-  r16.forEach(m => { W[m.id]=m.w; });
-
-  const qf = [
-    mk("M97",W.M89,W.M90), mk("M98",W.M91,W.M92), mk("M99",W.M93,W.M94), mk("M100",W.M95,W.M96),
-  ];
-  qf.forEach(m => { W[m.id]=m.w; });
-
-  const sf = [mk("M101",W.M97,W.M98), mk("M102",W.M99,W.M100)];
-  sf.forEach(m => { W[m.id]=m.w; });
-
-  const sf1l = sf[0].a===sf[0].w ? sf[0].b : sf[0].a;
-  const sf2l = sf[1].a===sf[1].w ? sf[1].b : sf[1].a;
-  const bronze = mk("M103",sf1l,sf2l);
-  const final  = mk("M104",W.M101,W.M102);
-
-  const CIRCLED = new Set(["M79","M84","M92","M95","M97","M102","M104"]);
-  return { gr, best8, r32, r16, qf, sf, bronze, final, CIRCLED };
 }
 
 // ─── BRACKET LAYOUT ──────────────────────────────────────────
-const CW=180, CH=72, CG=6, COL=26, HDR=20;
-function slotY(roundIdx, slotIdx) {
-  const unit = CH + CG;
-  const spacing = unit * Math.pow(2, roundIdx);
-  const firstTop = HDR + spacing/2 - CH/2;
-  return firstTop + slotIdx * spacing + CH/2;
+const CW=180,CH=72,CG=6,COL=26,HDR=20;
+function slotY(ri,si){
+  const u=CH+CG,sp=u*Math.pow(2,ri),ft=HDR+sp/2-CH/2;
+  return ft+si*sp+CH/2;
 }
-const BH = HDR + (CH+CG)*8 + 20;
-
-const fl = t => FLAGS[t]||"🏳️";
+const BH=HDR+(CH+CG)*8+20;
 
 // ─── BRACKET CARD ─────────────────────────────────────────────
-function BCard({ m, circled, C }) {
-  if (!m) return <div style={{width:CW,height:CH,background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}/>;
-  const aw=m.w===m.a, bw=m.w===m.b;
-  return (
-    <div style={{
-      width:CW, background:circled?C.cardGold:C.card,
-      border:`1.5px solid ${circled?C.gold:C.border}`, borderRadius:7, padding:"5px 7px",
-      boxShadow:circled?`0 0 14px ${C.gold}55`:"0 1px 3px #00000033",
-      position:"relative", boxSizing:"border-box",
-    }}>
-      {circled && <div style={{position:"absolute",top:-6,right:4,fontSize:7,background:C.gold,color:"#000",borderRadius:3,padding:"1px 4px",fontWeight:"800"}}>🟣 TICKET</div>}
+function BCard({m,circled,C}){
+  if(!m)return<div style={{width:CW,height:CH,background:C.surface,borderRadius:7,border:`1px solid ${C.border}`}}/>;
+  const aw=m.w===m.a,bw=m.w===m.b;
+  return(
+    <div style={{width:CW,background:circled?C.cardGold:C.card,border:`1.5px solid ${circled?C.gold:C.border}`,borderRadius:7,padding:"5px 7px",boxShadow:circled?`0 0 14px ${C.gold}55`:"none",position:"relative",boxSizing:"border-box"}}>
+      {circled&&<div style={{position:"absolute",top:-6,right:4,fontSize:7,background:C.gold,color:"#000",borderRadius:3,padding:"1px 4px",fontWeight:"800"}}>🟣</div>}
       <div style={{display:"flex",justifyContent:"space-between",fontSize:7,color:circled?C.gold:C.muted,marginBottom:3}}>
         <span style={{fontWeight:"700"}}>{m.id}</span>
         <span style={{maxWidth:84,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
       </div>
-      {[{t:m.a,s:m.sa,w:aw},{t:m.b,s:m.sb,w:bw}].map((row,i) => (
+      {[{t:m.a,s:m.sa,w:aw},{t:m.b,s:m.sb,w:bw}].map((row,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
-          <span style={{fontSize:13,lineHeight:1}}>{fl(row.t)}</span>
-          <span style={{fontSize:7.5,color:C.muted,minWidth:19}}>#{FIFA_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:13}}>{fl(row.t)}</span>
+          <span style={{fontSize:7,color:C.muted,minWidth:18}}>#{INTL_RANK[row.t]||"?"}</span>
           <span style={{fontSize:10,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t||"TBD"}</span>
           <span style={{fontSize:12,fontWeight:"900",color:row.w?C.gold:"#777",minWidth:14,textAlign:"right"}}>{row.s}</span>
         </div>
@@ -373,57 +427,49 @@ function BCard({ m, circled, C }) {
     </div>
   );
 }
-
-function HalfBracket({ rounds, direction, circled, C }) {
-  const ltr = direction === "ltr";
-  const nC  = rounds.length;
-  const W   = nC * (CW + COL) - COL;
-  function cy(r, s) {
-    const realRound = ltr ? r : (nC - 1 - r);
-    return slotY(realRound, s);
-  }
-  const lines = [];
-  if (ltr) {
-    for (let r = 0; r < nC - 1; r++) {
-      const nParent = rounds[r+1].length;
-      for (let d = 0; d < nParent; d++) {
-        const y1=cy(r,d*2), y2=cy(r,d*2+1), yP=cy(r+1,d), yM=(y1+y2)/2;
-        const xSrc=r*(CW+COL)+CW, xDst=(r+1)*(CW+COL), xMid=xSrc+COL/2;
+function HalfBracket({rounds,direction,circled,C}){
+  const ltr=direction==="ltr",nC=rounds.length,W=nC*(CW+COL)-COL;
+  const cy=(r,s)=>slotY(ltr?r:(nC-1-r),s);
+  const lines=[];
+  if(ltr){
+    for(let r=0;r<nC-1;r++){
+      const nP=rounds[r+1].length;
+      for(let d=0;d<nP;d++){
+        const y1=cy(r,d*2),y2=cy(r,d*2+1),yP=cy(r+1,d),yM=(y1+y2)/2;
+        const xS=r*(CW+COL)+CW,xD=(r+1)*(CW+COL),xM=xS+COL/2;
         lines.push(<g key={r+"-"+d}>
-          <line x1={xSrc} y1={y1} x2={xMid} y2={y1} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xSrc} y1={y2} x2={xMid} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xMid} y1={y1} x2={xMid} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xMid} y1={yM} x2={xDst} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
-          {yM!==yP && <line x1={xDst} y1={yM} x2={xDst} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
+          <line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
+          {yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
         </g>);
       }
     }
-  } else {
-    for (let r = 0; r < nC - 1; r++) {
-      const nParent = rounds[r].length;
-      for (let d = 0; d < nParent; d++) {
-        const y1=cy(r+1,d*2), y2=cy(r+1,d*2+1), yP=cy(r,d), yM=(y1+y2)/2;
-        const xSrc=(r+1)*(CW+COL), xDst=r*(CW+COL)+CW, xMid=xSrc-COL/2;
+  }else{
+    for(let r=0;r<nC-1;r++){
+      const nP=rounds[r].length;
+      for(let d=0;d<nP;d++){
+        const y1=cy(r+1,d*2),y2=cy(r+1,d*2+1),yP=cy(r,d),yM=(y1+y2)/2;
+        const xS=(r+1)*(CW+COL),xD=r*(CW+COL)+CW,xM=xS-COL/2;
         lines.push(<g key={r+"-"+d}>
-          <line x1={xSrc} y1={y1} x2={xMid} y2={y1} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xSrc} y1={y2} x2={xMid} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xMid} y1={y1} x2={xMid} y2={y2} stroke={C.border} strokeWidth="1.5"/>
-          <line x1={xMid} y1={yM} x2={xDst} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
-          {yM!==yP && <line x1={xDst} y1={yM} x2={xDst} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
+          <line x1={xS} y1={y1} x2={xM} y2={y1} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xS} y1={y2} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xM} y1={y1} x2={xM} y2={y2} stroke={C.border} strokeWidth="1.5"/>
+          <line x1={xM} y1={yM} x2={xD} y2={yM} stroke={C.accent} strokeWidth="1.5"/>
+          {yM!==yP&&<line x1={xD} y1={yM} x2={xD} y2={yP} stroke={C.accent} strokeWidth="1.5"/>}
         </g>);
       }
     }
   }
-  const LBLS = ltr ? ["R32","R16","QF","SF"] : ["SF","QF","R16","R32"];
-  return (
+  const LBLS=ltr?["R32","R16","QF","SF"]:["SF","QF","R16","R32"];
+  return(
     <div style={{position:"relative",width:W,height:BH,flexShrink:0}}>
       <svg style={{position:"absolute",top:0,left:0,width:W,height:BH,pointerEvents:"none"}}>{lines}</svg>
-      {rounds.map((_,r) => (
-        <div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,
-          textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,
-          borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>
+      {rounds.map((_,r)=>(
+        <div key={r} style={{position:"absolute",top:0,left:r*(CW+COL),width:CW,textAlign:"center",fontSize:7,color:C.gold,fontWeight:"700",letterSpacing:1,borderBottom:`1px solid ${C.goldDim}`,paddingBottom:2}}>{LBLS[r]}</div>
       ))}
-      {rounds.map((ms,r) => ms.map((m,s) => (
+      {rounds.map((ms,r)=>ms.map((m,s)=>(
         <div key={m?.id||r+"-"+s} style={{position:"absolute",top:cy(r,s)-CH/2,left:r*(CW+COL)}}>
           <BCard m={m} circled={circled?.has(m?.id)} C={C}/>
         </div>
@@ -431,24 +477,19 @@ function HalfBracket({ rounds, direction, circled, C }) {
     </div>
   );
 }
-
-function FinalCard({ final, C }) {
-  const aw=final.w===final.a, bw=final.w===final.b;
-  return (
-    <div style={{
-      width:196, background:C.cardGold,
-      border:`2px solid ${C.gold}`, borderRadius:12, padding:"9px 11px",
-      boxShadow:`0 0 32px ${C.gold}55`, flexShrink:0, alignSelf:"center",
-    }}>
+function FinalCard({final,C}){
+  const aw=final.w===final.a,bw=final.w===final.b;
+  return(
+    <div style={{width:196,background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:12,padding:"9px 11px",boxShadow:`0 0 32px ${C.gold}55`,flexShrink:0,alignSelf:"center"}}>
       <div style={{textAlign:"center",marginBottom:7}}>
-        <div style={{fontSize:7.5,color:C.gold,letterSpacing:3,fontWeight:"800"}}>🏆 THE FINAL</div>
-        <div style={{fontSize:7,color:C.muted,marginTop:1}}>M104 · East Rutherford NJ · Jul 19</div>
+        <div style={{fontSize:7.5,color:C.gold,letterSpacing:3,fontWeight:"800"}}>🏆 LA GRAN FINAL</div>
+        <div style={{fontSize:7,color:C.muted,marginTop:1}}>M104 · East Rutherford NJ · 19 Jul</div>
       </div>
-      {[{t:final.a,s:final.sa,w:aw},{t:final.b,s:final.sb,w:bw}].map((row,i) => (
+      {[{t:final.a,s:final.sa,w:aw},{t:final.b,s:final.sb,w:bw}].map((row,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 0",borderTop:`1px solid ${C.border}`}}>
           <span style={{fontSize:20}}>{fl(row.t)}</span>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:7.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</div>
+            <div style={{fontSize:7.5,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</div>
             <div style={{fontSize:11,fontWeight:row.w?"800":"400",color:row.w?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.t}</div>
           </div>
           <span style={{fontSize:18,fontWeight:"900",color:row.w?C.gold:"#777"}}>{row.s}</span>
@@ -457,118 +498,107 @@ function FinalCard({ final, C }) {
       <div style={{marginTop:7,textAlign:"center",padding:"5px",background:`${C.gold}22`,borderRadius:7,border:`1px solid ${C.goldDim}`}}>
         <div style={{fontSize:18}}>{fl(final.w)}</div>
         <div style={{fontSize:11,fontWeight:"900",color:C.gold}}>{final.w}</div>
-        <div style={{fontSize:7,color:C.muted,letterSpacing:1}}>WORLD CHAMPION 2026</div>
+        <div style={{fontSize:7,color:C.muted,letterSpacing:1}}>CAMPEÓN MUNDIAL 2026</div>
       </div>
     </div>
   );
 }
-
-function VisualBracket({ sim, C }) {
-  const [zoom, setZoom] = React.useState(1);
+function VisualBracket({sim,C,t}){
+  const[zoom,setZoom]=useState(1);
   const find=(arr,id)=>arr.find(m=>m.id===id);
-  const L_R32=["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>find(sim.r32,id));
-  const L_R16=["M89","M90","M91","M92"].map(id=>find(sim.r16,id));
-  const L_QF =["M97","M98"].map(id=>find(sim.qf,id));
-  const R_R32=["M81","M82","M83","M84","M85","M86","M87","M88"].map(id=>find(sim.r32,id));
-  const R_R16=["M93","M94","M95","M96"].map(id=>find(sim.r16,id));
-  const R_QF =["M99","M100"].map(id=>find(sim.qf,id));
-  const FW=190+COL*2, sfY=slotY(3,0);
-  const ZOOMS=[{label:"100%",val:1},{label:"75%",val:0.75},{label:"50%",val:0.5},{label:"33%",val:0.33}];
-  return (
+  const LR32=["M73","M74","M75","M76","M77","M78","M79","M80"].map(id=>find(sim.r32,id));
+  const LR16=["M89","M90","M91","M92"].map(id=>find(sim.r16,id));
+  const LQF=["M97","M98"].map(id=>find(sim.qf,id));
+  const RR32=["M81","M82","M83","M84","M85","M86","M87","M88"].map(id=>find(sim.r32,id));
+  const RR16=["M93","M94","M95","M96"].map(id=>find(sim.r16,id));
+  const RQF=["M99","M100"].map(id=>find(sim.qf,id));
+  const FW=190+COL*2,sfY=slotY(3,0);
+  const ZS=[{l:"100%",v:1},{l:"75%",v:0.75},{l:"50%",v:0.5},{l:"33%",v:0.33}];
+  return(
     <div style={{paddingBottom:16}}>
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:9,color:C.muted,letterSpacing:1}}>ZOOM:</span>
-        {ZOOMS.map(z => (
-          <button key={z.val} onClick={()=>setZoom(z.val)} style={{
-            padding:"3px 10px",borderRadius:6,fontSize:10,
-            background:zoom===z.val?C.accent+"33":"transparent",
-            color:zoom===z.val?C.accent:C.muted,
-            border:`1px solid ${zoom===z.val?C.accent:C.border}`,
-            fontWeight:zoom===z.val?"700":"400",cursor:"pointer",
-          }}>{z.label}</button>
+        <span style={{fontSize:9,color:C.muted,letterSpacing:1}}>{t.zoom}:</span>
+        {ZS.map(z=>(
+          <button key={z.v} onClick={()=>setZoom(z.v)} style={{padding:"3px 10px",borderRadius:6,fontSize:10,background:zoom===z.v?C.accent+"33":"transparent",color:zoom===z.v?C.accent:C.muted,border:`1px solid ${zoom===z.v?C.accent:C.border}`,fontWeight:zoom===z.v?"700":"400"}}>{z.l}</button>
         ))}
       </div>
-      <div style={{overflowX:"auto",overflowY:"hidden"}}>
-        <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",
-          width:zoom<1?`${100/zoom}%`:"auto",height:zoom<1?BH*zoom+20:"auto",paddingBottom:12}}>
+      <div style={{overflowX:"auto"}}>
+        <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:zoom<1?`${100/zoom}%`:"auto",height:zoom<1?BH*zoom+20:"auto",paddingBottom:12}}>
           <div style={{display:"flex",alignItems:"flex-start"}}>
-            <HalfBracket rounds={[L_R32,L_R16,L_QF,[sim.sf[0]]]} direction="ltr" circled={sim.CIRCLED} C={C}/>
+            <HalfBracket rounds={[LR32,LR16,LQF,[sim.sf[0]]]} direction="ltr" circled={sim.CIRCLED} C={C}/>
             <div style={{width:FW,height:BH,flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <svg style={{position:"absolute",top:0,left:0,width:FW,height:BH,pointerEvents:"none"}}>
-                <line x1={0}      y1={sfY} x2={COL}     y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={COL}    y1={sfY} x2={COL}     y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={COL}    y1={BH/2} x2={FW/2-95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={FW}     y1={sfY} x2={FW-COL}  y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
-                <line x1={FW-COL} y1={sfY} x2={FW-COL}  y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={0} y1={sfY} x2={COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={COL} y1={sfY} x2={COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={COL} y1={BH/2} x2={FW/2-95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={FW} y1={sfY} x2={FW-COL} y2={sfY} stroke={C.accent} strokeWidth="1.5"/>
+                <line x1={FW-COL} y1={sfY} x2={FW-COL} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
                 <line x1={FW-COL} y1={BH/2} x2={FW/2+95} y2={BH/2} stroke={C.accent} strokeWidth="1.5"/>
               </svg>
               <FinalCard final={sim.final} C={C}/>
             </div>
-            <HalfBracket rounds={[[sim.sf[1]],R_QF,R_R16,R_R32]} direction="rtl" circled={sim.CIRCLED} C={C}/>
+            <HalfBracket rounds={[[sim.sf[1]],RQF,RR16,RR32]} direction="rtl" circled={sim.CIRCLED} C={C}/>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-function GroupTable({ grp, data, C }) {
+function GroupTable({grp,data,C,t}){
   const teams=[data.p1,data.p2,data.p3,data.p4];
-  return (
+  return(
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:11,overflow:"hidden",marginBottom:12}}>
       <div style={{background:C.headerBg,padding:"7px 11px",display:"flex",alignItems:"center",gap:8,borderBottom:`1px solid ${C.border}`}}>
         <div style={{width:22,height:22,borderRadius:5,background:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",fontSize:12,color:"#000"}}>{grp}</div>
-        <span style={{fontSize:10,color:C.muted,letterSpacing:2}}>GROUP {grp} · {GROUP_VENUES[grp]}</span>
+        <span style={{fontSize:10,color:C.muted,letterSpacing:2}}>GRUPO {grp} · {GROUP_VENUES[grp]}</span>
       </div>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+      <table style={{width:"100%"}}>
         <thead>
           <tr style={{background:C.surface}}>
-            {["","Team","Rank","W","D","L","GF","GA","GD","Pts"].map((h,i)=>(
-              <th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Team"?"left":"center",fontSize:10}}>{h}</th>
+            {["","Selección",t.rank,"G","E","P","GF","GC","DG","Pts"].map((h,i)=>(
+              <th key={i} style={{padding:"4px 5px",color:C.muted,fontWeight:"600",textAlign:h==="Selección"?"left":"center",fontSize:10}}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {teams.map((t,i) => {
-            const gd=data.gf[t]-data.ga[t];
-            return (
-              <tr key={t} style={{borderTop:`1px solid ${C.border}`,
-                background:i===0?`${C.gold}11`:i===1?`${C.accent}11`:i===2?`${C.green}08`:"transparent"}}>
+          {teams.map((tm,i)=>{
+            const gd=data.gf[tm]-data.ga[tm];
+            return(
+              <tr key={tm} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i===1?`${C.accent}11`:"transparent"}}>
                 <td style={{padding:"5px 6px",textAlign:"center"}}>
-                  <span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",
-                    background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#333",
-                    color:i<3?"#000":"#555"}}>{i+1}</span>
+                  <span style={{width:16,height:16,borderRadius:3,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:"700",background:i===0?C.gold:i===1?C.accent:i===2?"#2a4a1a":"#333",color:i<3?"#000":"#555"}}>{i+1}</span>
                 </td>
                 <td style={{padding:"5px 6px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{fontSize:15}}>{fl(t)}</span>
-                    <span style={{color:i<2?C.text:i===2?C.muted:"#4a5a70",fontWeight:i<2?"600":"400",fontSize:11}}>{t}</span>
-                    {i===0&&<span style={{fontSize:8,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1ST</span>}
-                    {i===1&&<span style={{fontSize:8,background:C.accent,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2ND</span>}
-                    {i===2&&<span style={{fontSize:8,background:"#1a3a0a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3RD?</span>}
+                    <span style={{fontSize:15}}>{fl(tm)}</span>
+                    <span style={{color:i<2?C.text:C.muted,fontWeight:i<2?"600":"400",fontSize:11}}>{tm}</span>
+                    {i===0&&<span style={{fontSize:7,background:C.gold,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>1°</span>}
+                    {i===1&&<span style={{fontSize:7,background:C.accent,color:"#000",borderRadius:2,padding:"1px 3px",fontWeight:"800"}}>2°</span>}
+                    {i===2&&<span style={{fontSize:7,background:"#1a3a0a",color:C.green,borderRadius:2,padding:"1px 3px",fontWeight:"700",border:`1px solid ${C.green}`}}>3°?</span>}
                   </div>
                 </td>
-                <td style={{padding:"5px",textAlign:"center"}}><span style={{fontSize:10,color:i<2?C.gold:C.muted,fontWeight:i<2?"700":"400"}}>#{FIFA_RANK[t]||"?"}</span></td>
-                {[data.wins[t],data.draws[t],data.losses[t],data.gf[t],data.ga[t]].map((v,j)=>(
+                <td style={{padding:"5px",textAlign:"center"}}><span style={{fontSize:10,color:i<2?C.gold:C.muted}}>#{INTL_RANK[tm]||"?"}</span></td>
+                {[data.wins[tm],data.draws[tm],data.losses[tm],data.gf[tm],data.ga[tm]].map((v,j)=>(
                   <td key={j} style={{padding:"5px",textAlign:"center",color:C.muted,fontSize:11}}>{v}</td>
                 ))}
                 <td style={{padding:"5px",textAlign:"center",color:gd>0?C.green:gd<0?C.red:C.muted,fontWeight:"600",fontSize:11}}>{gd>0?"+":""}{gd}</td>
-                <td style={{padding:"5px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[t]}</td>
+                <td style={{padding:"5px",textAlign:"center",fontWeight:"800",color:i<2?C.gold:C.text,fontSize:13}}>{data.pts[tm]}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
       <div style={{padding:"7px 10px",borderTop:`1px solid ${C.border}`,background:C.surface}}>
-        <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>MATCH RESULTS</div>
+        <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:5}}>{t.matchResults}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:3}}>
           {data.matches.map((m,i)=>(
             <div key={i} style={{background:C.card,borderRadius:5,padding:"3px 5px",border:`1px solid ${C.border}`,position:"relative"}}>
-              {m.locked && <div style={{position:"absolute",top:1,right:2,fontSize:7,color:C.gold}}>🔒</div>}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:3}}>
-                <span style={{fontSize:9,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sa>m.sb?C.gold:C.muted}}>{fl(m.a)} {m.a.split(" ")[0]}</span>
+              {m.locked&&<span style={{position:"absolute",top:1,right:2,fontSize:7}}>🔒</span>}
+              {m.whatif&&<span style={{position:"absolute",top:1,right:2,fontSize:7,color:C.blue}}>✏️</span>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:2}}>
+                <span style={{fontSize:8,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sa>m.sb?C.gold:C.muted}}>{fl(m.a)} {m.a.split(" ")[0]}</span>
                 <span style={{fontSize:10,fontWeight:"800",color:C.text,whiteSpace:"nowrap"}}>{m.sa}-{m.sb}</span>
-                <span style={{fontSize:9,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sb>m.sa?C.gold:C.muted}}>{m.b.split(" ")[0]} {fl(m.b)}</span>
+                <span style={{fontSize:8,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:m.sb>m.sa?C.gold:C.muted}}>{m.b.split(" ")[0]} {fl(m.b)}</span>
               </div>
             </div>
           ))}
@@ -577,12 +607,11 @@ function GroupTable({ grp, data, C }) {
     </div>
   );
 }
-
-function MatchGrid({ matches, circled, C }) {
-  return (
+function MatchGrid({matches,circled,C,t}){
+  return(
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       {matches.map((m,i)=>(
-        <div key={i} style={{background:circled.has(m.id)?C.cardGold:C.card,border:`1px solid ${circled.has(m.id)?C.gold:C.border}`,borderRadius:10,padding:"9px 11px",boxShadow:circled.has(m.id)?`0 0 10px ${C.gold}33`:"none"}}>
+        <div key={i} style={{background:circled.has(m.id)?C.cardGold:C.card,border:`1px solid ${circled.has(m.id)?C.gold:C.border}`,borderRadius:10,padding:"9px 11px"}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:5}}>
             <span style={{fontWeight:"700",color:circled.has(m.id)?C.gold:C.muted}}>{m.id}{circled.has(m.id)?" 🟣":""}</span>
             <span style={{maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.venue}</span>
@@ -590,20 +619,19 @@ function MatchGrid({ matches, circled, C }) {
           {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
             <div key={j} style={{display:"flex",alignItems:"center",gap:4,marginBottom:j===0?4:0}}>
               <span style={{fontSize:17}}>{fl(row.t)}</span>
-              <span style={{fontSize:8.5,color:C.muted,minWidth:22}}>#{FIFA_RANK[row.t]||"?"}</span>
+              <span style={{fontSize:8,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
               <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
               <span style={{fontSize:14,fontWeight:"800",color:row.w?C.gold:"#888"}}>{row.s}</span>
             </div>
           ))}
-          <div style={{marginTop:5,fontSize:9,color:C.green,fontWeight:"700"}}>✓ {fl(m.w)} {m.w} advances</div>
+          <div style={{marginTop:5,fontSize:9,color:C.green,fontWeight:"700"}}>✓ {fl(m.w)} {m.w} {t.advances}</div>
         </div>
       ))}
     </div>
   );
 }
-
-function KOCard({ m, circled, C }) {
-  return (
+function KOCard({m,circled,C}){
+  return(
     <div style={{background:circled?C.cardGold:C.card,border:`${circled?"2":"1"}px solid ${circled?C.gold:C.border}`,borderRadius:12,padding:"10px 12px",boxShadow:circled?`0 0 18px ${C.gold}44`:"none"}}>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:C.muted,marginBottom:6}}>
         <span style={{fontWeight:"700",color:circled?C.gold:C.muted}}>{m.id}{circled?" 🟣":""}</span>
@@ -612,7 +640,7 @@ function KOCard({ m, circled, C }) {
       {[{t:m.a,s:m.sa,w:m.w===m.a},{t:m.b,s:m.sb,w:m.w===m.b}].map((row,j)=>(
         <div key={j} style={{display:"flex",alignItems:"center",gap:5,marginBottom:j===0?5:0}}>
           <span style={{fontSize:20}}>{fl(row.t)}</span>
-          <span style={{fontSize:8.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+          <span style={{fontSize:8,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
           <span style={{fontSize:12,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t}</span>
           <span style={{fontSize:15,fontWeight:"900",color:row.w?C.gold:"#888"}}>{row.s}</span>
         </div>
@@ -621,301 +649,523 @@ function KOCard({ m, circled, C }) {
   );
 }
 
-// ─── SHARE BUTTON ────────────────────────────────────────────
-function ShareButton({ sim, C }) {
-  const [copied, setCopied] = useState(false);
-  const share = () => {
-    const text = [
-      `🏆 Olivos Predictor · WC2026 Simulation`,
-      ``,
-      `Champion: ${fl(sim.final.w)} ${sim.final.w}`,
-      `Final: ${sim.final.a} ${sim.final.sa}-${sim.final.sb} ${sim.final.b}`,
-      ``,
-      `Semi-finals:`,
-      `  ${sim.sf[0].a} ${sim.sf[0].sa}-${sim.sf[0].sb} ${sim.sf[0].b}`,
-      `  ${sim.sf[1].a} ${sim.sf[1].sa}-${sim.sf[1].sb} ${sim.sf[1].b}`,
-      ``,
-      `Group winners:`,
-      ...Object.entries(sim.gr).map(([g,d])=>`  Group ${g}: ${fl(d.p1)} ${d.p1}`),
-      ``,
-      `olivospredictor.com`,
-    ].join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
+// ─── OLIVOS ENGINE TAB ────────────────────────────────────────
+function EngineTab({levelId,locked,ls,C,t}){
+  const[results,setResults]=useState(null);
+  const[progress,setProgress]=useState(0);
+  const[running,setRunning]=useState(false);
+  const[sortCol,setSortCol]=useState('win');
+  const[groupFilter,setGroupFilter]=useState('ALL');
+  const pct=v=>{
+    const color=v>=50?C.gold:v>=25?C.accent:v>=10?C.blue:C.muted;
+    return(
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <div style={{flex:1,height:4,background:C.border,borderRadius:2,overflow:"hidden"}}>
+          <div style={{width:`${v}%`,height:"100%",background:color,borderRadius:2,transition:"width 0.3s"}}/>
+        </div>
+        <span style={{fontSize:10,fontWeight:"700",color,minWidth:30,textAlign:"right"}}>{v}%</span>
+      </div>
+    );
   };
-  return (
-    <button onClick={share} style={{
-      padding:"5px 14px", borderRadius:20, cursor:"pointer",
-      background:copied?C.gold+"33":"transparent",
-      border:`1px solid ${copied?C.gold:C.border}`,
-      color:copied?C.gold:C.muted, fontSize:10, letterSpacing:1,
-      transition:"all 0.2s",
-    }}>
-      {copied ? "✅ Copied!" : "📤 Share"}
+  const run=async()=>{
+    setRunning(true);setResults(null);setProgress(0);
+    const r=await runEngine(levelId,locked,ls,p=>setProgress(p));
+    setResults(r);setRunning(false);
+  };
+  const sorted=useMemo(()=>{
+    if(!results)return[];
+    let r=[...results];
+    if(groupFilter!=='ALL')r=r.filter(x=>x.group===groupFilter);
+    return r.sort((a,b)=>b[sortCol]-a[sortCol]);
+  },[results,sortCol,groupFilter]);
+  return(
+    <div>
+      {/* Header */}
+      <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:14,padding:"14px 16px",marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <OlivosLogo size={36} color={C.gold}/>
+          <div>
+            <div style={{fontSize:16,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div>
+            <div style={{fontSize:10,color:C.muted,letterSpacing:1}}>{t.engineSub}</div>
+          </div>
+        </div>
+        <div style={{fontSize:11,color:C.text,lineHeight:1.6,borderTop:`1px solid ${C.goldDim}`,paddingTop:8}}>{t.engineDesc}</div>
+      </div>
+      {/* Run button */}
+      {!running&&(
+        <button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14,cursor:"pointer"}}>
+          🧬 {t.runEngine}
+        </button>
+      )}
+      {/* Progress bar */}
+      {running&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px",marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <div style={{fontSize:14}} className="spin">⚙️</div>
+            <span style={{fontSize:12,color:C.gold,fontWeight:"700"}}>{t.engineRunning}... {progress}%</span>
+          </div>
+          <div style={{width:"100%",height:10,background:C.border,borderRadius:5,overflow:"hidden"}}>
+            <div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,borderRadius:5,transition:"width 0.1s"}}/>
+          </div>
+          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones · {Math.round(progress*100)}  completadas</div>
+        </div>
+      )}
+      {/* Results */}
+      {results&&!running&&(
+        <div>
+          <div style={{fontSize:9,color:C.green,marginBottom:10,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone} — {results.length} selecciones</div>
+          {/* Filters */}
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:9,color:C.muted}}>{t.sortBy}:</span>
+            {[['win',t.colWin],['final',t.colFinal],['sf',t.colSF],['qf',t.colQF],['r16',t.colR16],['winGroup',t.colWinGroup]].map(([k,label])=>(
+              <button key={k} onClick={()=>setSortCol(k)} style={{padding:"3px 8px",borderRadius:10,fontSize:9,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{label}</button>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
+            {['ALL',...Object.keys(GROUPS)].map(g=>(
+              <button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"2px 8px",borderRadius:8,fontSize:9,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`}}>{g==='ALL'?'Todos':g}</button>
+            ))}
+          </div>
+          {/* Table */}
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{background:C.surface}}>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>#</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colTeam}</th>
+                  <th style={{padding:"6px 8px",textAlign:"center",fontSize:9,color:C.muted,fontWeight:"700"}}>{t.colGroup}</th>
+                  {[t.colWinGroup,t.colR32,t.colR16,t.colQF,t.colSF,t.colFinal,t.colWin].map((h,i)=>(
+                    <th key={i} style={{padding:"6px 4px",textAlign:"center",fontSize:8,color:C.muted,fontWeight:"700",minWidth:55}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((row,i)=>(
+                  <tr key={row.team} style={{borderTop:`1px solid ${C.border}`,background:i===0?`${C.gold}11`:i<3?`${C.gold}08`:"transparent"}}>
+                    <td style={{padding:"5px 8px",fontSize:10,color:C.muted,fontWeight:"700"}}>{i+1}</td>
+                    <td style={{padding:"5px 8px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:14}}>{fl(row.team)}</span>
+                        <span style={{fontSize:10,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</span>
+                      </div>
+                    </td>
+                    <td style={{padding:"5px 4px",textAlign:"center"}}>
+                      <span style={{fontSize:10,background:C.accent+"22",color:C.accent,padding:"1px 5px",borderRadius:4,fontWeight:"700"}}>{row.group}</span>
+                    </td>
+                    {[row.winGroup,row.r32,row.r16,row.qf,row.sf,row.final,row.win].map((v,j)=>(
+                      <td key={j} style={{padding:"4px 4px",minWidth:55}}>{pct(v)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── WHAT-IF TAB ──────────────────────────────────────────────
+function WhatIfTab({sim,locked,ls,levelId,onWhatifChange,whatif,C,t}){
+  const[localWhatif,setLocalWhatif]=useState({...whatif});
+  const[editing,setEditing]=useState(null);
+  const[editA,setEditA]=useState(0);
+  const[editB,setEditB]=useState(0);
+  const allGroupMatches=[];
+  Object.entries(sim.gr).forEach(([g,data])=>{
+    data.matches.forEach(m=>{
+      const k=`${m.a}|${m.b}`;
+      allGroupMatches.push({...m,group:g,key:k,isLocked:m.locked,isWhatif:!!localWhatif[k]});
+    });
+  });
+  const applyEdit=()=>{
+    if(!editing)return;
+    setLocalWhatif(prev=>({...prev,[editing.key]:{home:editA,away:editB}}));
+    setEditing(null);
+  };
+  const resetAll=()=>{setLocalWhatif({});onWhatifChange({});};
+  const applyAll=()=>onWhatifChange(localWhatif);
+  return(
+    <div>
+      {/* Instructions */}
+      <div style={{background:`${C.blue}18`,border:`1px solid ${C.blue}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+        <div style={{fontSize:12,fontWeight:"900",color:C.blue,letterSpacing:2,marginBottom:6}}>🔀 {t.whatifTitle}</div>
+        <div style={{fontSize:11,color:C.text,lineHeight:1.7}}>{t.whatifDesc}</div>
+      </div>
+      {/* Action buttons */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        <button onClick={applyAll} style={{flex:1,padding:"10px",background:C.gold+"22",border:`2px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:12,fontWeight:"700",cursor:"pointer"}}>✅ {t.whatifApply}</button>
+        <button onClick={resetAll} style={{flex:1,padding:"10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:10,color:C.muted,fontSize:12,cursor:"pointer"}}>🔄 {t.whatifReset}</button>
+      </div>
+      {/* Match list */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {allGroupMatches.map((m,i)=>{
+          const wi=localWhatif[m.key];
+          return(
+            <div key={i} style={{background:m.isLocked?C.surface:wi?`${C.blue}11`:C.card,border:`1px solid ${m.isLocked?C.border:wi?C.blue:C.border}`,borderRadius:10,padding:"9px 10px",opacity:m.isLocked?0.7:1}}>
+              <div style={{fontSize:8,color:C.muted,marginBottom:4,display:"flex",justifyContent:"space-between"}}>
+                <span style={{color:m.isLocked?C.muted:wi?C.blue:C.muted}}>Grupo {m.group}</span>
+                {m.isLocked&&<span style={{fontSize:8,color:C.muted}}>{t.whatifLocked}</span>}
+                {wi&&!m.isLocked&&<span style={{fontSize:8,color:C.blue}}>✏️ {t.whatifCustom}: {wi.home}-{wi.away}</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:13}}>{fl(m.a)}</span>
+                <span style={{fontSize:11,color:C.text,flex:1,textAlign:"center"}}>{m.a.split(" ")[0]}</span>
+                <span style={{fontSize:12,color:C.muted}}>vs</span>
+                <span style={{fontSize:11,color:C.text,flex:1,textAlign:"center"}}>{m.b.split(" ")[0]}</span>
+                <span style={{fontSize:13}}>{fl(m.b)}</span>
+              </div>
+              {!m.isLocked&&(
+                editing&&editing.key===m.key?(
+                  <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                    <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)}
+                      style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                    <span style={{color:C.muted}}>-</span>
+                    <input type="number" min="0" max="20" value={editB} onChange={e=>setEditB(+e.target.value)}
+                      style={{width:36,padding:"3px",textAlign:"center",borderRadius:5,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:12}}/>
+                    <button onClick={applyEdit} style={{flex:1,padding:"3px 6px",background:C.gold,border:"none",borderRadius:5,color:"#000",fontSize:10,fontWeight:"700",cursor:"pointer"}}>✓</button>
+                    <button onClick={()=>setEditing(null)} style={{padding:"3px 6px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:5,color:C.muted,fontSize:10,cursor:"pointer"}}>✗</button>
+                  </div>
+                ):(
+                  <button onClick={()=>{setEditing(m);setEditA(wi?.home??1);setEditB(wi?.away??0);}}
+                    style={{width:"100%",padding:"4px",background:"transparent",border:`1px dashed ${C.border}`,borderRadius:6,color:C.muted,fontSize:9,cursor:"pointer"}}>
+                    {wi?`${wi.home}-${wi.away} · Cambiar`:"+ Definir marcador"}
+                  </button>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN TAB ────────────────────────────────────────────────
+function AdminTab({sim,locked,C,t}){
+  const[conflicts,setConflicts]=useState([]);
+  const[matches,setMatches]=useState([]);
+  const[editing,setEditing]=useState(null);
+  const[editH,setEditH]=useState(0);
+  const[editA,setEditA]=useState(0);
+  const[msg,setMsg]=useState('');
+  useEffect(()=>{
+    supaFetch('conflict_log?resolved=eq.false&select=*,matches(home_team,away_team)').then(d=>setConflicts(d||[]));
+    supaFetch('matches?competition=eq.WC2026&select=id,home_team,away_team,home_score,away_score,locked,confidence&order=match_date').then(d=>setMatches(d||[]));
+  },[]);
+  const doLock=async(id,lock)=>{
+    await supaWrite(`matches?id=eq.${id}`,{locked:lock},'PATCH');
+    setMatches(prev=>prev.map(m=>m.id===id?{...m,locked:lock}:m));
+    setMsg(lock?`🔒 ${id} bloqueado`:`🔓 ${id} desbloqueado`);
+    setTimeout(()=>setMsg(''),3000);
+  };
+  const doOverride=async()=>{
+    if(!editing)return;
+    await supaWrite(`matches?id=eq.${editing.id}`,{home_score:editH,away_score:editA,admin_override:true,locked:true},'PATCH');
+    setMatches(prev=>prev.map(m=>m.id===editing.id?{...m,home_score:editH,away_score:editA,locked:true}:m));
+    setEditing(null);setMsg(`✅ ${editing.id} corregido: ${editH}-${editA}`);
+    setTimeout(()=>setMsg(''),3000);
+  };
+  return(
+    <div>
+      <div style={{background:`${C.red}11`,border:`2px solid ${C.red}`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+        <div style={{fontSize:14,fontWeight:"900",color:C.red,letterSpacing:2}}>🔐 {t.adminTitle}</div>
+        <div style={{fontSize:9,color:C.muted,marginTop:2}}>Acceso restringido · Cambios en tiempo real</div>
+      </div>
+      {msg&&<div style={{background:C.green+"22",border:`1px solid ${C.green}`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:C.green}}>{msg}</div>}
+      {/* Conflicts */}
+      {conflicts.length>0&&(
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:C.red,fontWeight:"700",letterSpacing:2,marginBottom:8}}>⚠️ {t.adminConflicts} ({conflicts.length})</div>
+          {conflicts.map((c,i)=>(
+            <div key={i} style={{background:C.card,border:`1px solid ${C.red}`,borderRadius:10,padding:"10px",marginBottom:6}}>
+              <div style={{fontSize:10,color:C.red,fontWeight:"700"}}>{c.match_id}</div>
+              <div style={{fontSize:9,color:C.muted,marginTop:3}}>
+                football-data.org: <strong style={{color:C.text}}>{c.primary_score}</strong> · API-Football: <strong style={{color:C.text}}>{c.secondary_score}</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Match list */}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:2,marginBottom:8}}>PARTIDOS WC2026 ({matches.length})</div>
+      {matches.map((m,i)=>(
+        <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 11px",marginBottom:6}}>
+          {editing&&editing.id===m.id?(
+            <div>
+              <div style={{fontSize:10,fontWeight:"700",color:C.text,marginBottom:8}}>{m.home_team} vs {m.away_team}</div>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                <input type="number" min="0" max="20" value={editH} onChange={e=>setEditH(+e.target.value)}
+                  style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <span style={{color:C.muted,fontSize:14}}>-</span>
+                <input type="number" min="0" max="20" value={editA} onChange={e=>setEditA(+e.target.value)}
+                  style={{width:48,padding:"5px",textAlign:"center",borderRadius:6,border:`1px solid ${C.gold}`,background:C.surface,color:C.text,fontSize:14}}/>
+                <button onClick={doOverride} style={{flex:1,padding:"6px",background:C.gold,border:"none",borderRadius:6,color:"#000",fontSize:11,fontWeight:"700",cursor:"pointer"}}>{t.adminSave}</button>
+                <button onClick={()=>setEditing(null)} style={{padding:"6px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontSize:11,cursor:"pointer"}}>{t.adminCancel}</button>
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.home_team} vs {m.away_team}</div>
+                <div style={{fontSize:9,color:C.muted}}>{m.id} · {m.home_score??"-"}-{m.away_score??"-"} · <span style={{color:m.locked?C.green:C.muted}}>{m.locked?"🔒":"⬜"}</span></div>
+              </div>
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                <button onClick={()=>doLock(m.id,!m.locked)} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${m.locked?C.red:C.green}`,borderRadius:6,color:m.locked?C.red:C.green,fontSize:9,cursor:"pointer"}}>
+                  {m.locked?t.adminUnlock:t.adminLock}
+                </button>
+                <button onClick={()=>{setEditing(m);setEditH(m.home_score??0);setEditA(m.away_score??0);}} style={{padding:"3px 7px",background:"transparent",border:`1px solid ${C.blue}`,borderRadius:6,color:C.blue,fontSize:9,cursor:"pointer"}}>
+                  {t.adminOverride}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── SHARE BUTTON ─────────────────────────────────────────────
+function ShareBtn({sim,C,t}){
+  const[copied,setCopied]=useState(false);
+  const share=()=>{
+    const txt=[
+      `🧬 Olivos Predictor · Copa del Mundo 2026`,``,
+      `🏆 Campeón: ${fl(sim.final.w)} ${sim.final.w}`,
+      `Final: ${sim.final.a} ${sim.final.sa}-${sim.final.sb} ${sim.final.b}`,``,
+      `Semifinales:`,
+      `  ${sim.sf[0].a} ${sim.sf[0].sa}-${sim.sf[0].sb} ${sim.sf[0].b}`,
+      `  ${sim.sf[1].a} ${sim.sf[1].sa}-${sim.sf[1].sb} ${sim.sf[1].b}`,``,
+      `Ganadores de grupo:`,
+      ...Object.entries(sim.gr).map(([g,d])=>`  Grupo ${g}: ${fl(d.p1)} ${d.p1}`),``,
+      `olivospredictor.vercel.app`,
+    ].join('\n');
+    navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
+  };
+  return(
+    <button onClick={share} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${copied?C.gold:C.border}`,background:copied?C.gold+"22":"transparent",color:copied?C.gold:C.muted,fontSize:10,letterSpacing:1,transition:"all 0.2s"}}>
+      {copied?`✅ ${t.shared}`:`📤 ${t.share}`}
     </button>
   );
 }
 
-// ─── LIVE DATA STATUS BADGE ───────────────────────────────────
-function LiveBadge({ liveStatus, C }) {
-  if (!liveStatus) return null;
-  const colors = {
-    live: C.green, cached: C.muted, error: C.red, loading: C.accent
-  };
-  const labels = {
-    live: "🟢 Live Data", cached: "⚪ Cached", error: "🔴 Offline", loading: "⏳ Loading"
-  };
-  return (
-    <div style={{fontSize:8,color:colors[liveStatus]||C.muted,border:`1px solid ${colors[liveStatus]||C.border}`,
-      borderRadius:10,padding:"2px 8px",letterSpacing:1}}>
-      {labels[liveStatus]||liveStatus}
+// ─── LIVE BADGE ───────────────────────────────────────────────
+function LiveBadge({status,liveMatches,C,t}){
+  const labels={live:t.liveData,cached:t.cached,error:t.offline,loading:t.loading};
+  const colors={live:C.green,cached:C.muted,error:C.red,loading:C.blue};
+  const hasLive=liveMatches&&liveMatches.length>0;
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+      {hasLive&&(
+        <div style={{display:"flex",alignItems:"center",gap:4,background:`${C.red}22`,border:`1px solid ${C.red}`,borderRadius:10,padding:"2px 8px"}}>
+          <div className="live-pulse" style={{width:7,height:7,borderRadius:"50%",background:C.liveDot}}/>
+          <span style={{fontSize:8,color:C.liveDot,fontWeight:"700",letterSpacing:1}}>{t.liveNow}</span>
+        </div>
+      )}
+      <div style={{fontSize:8,color:colors[status]||C.muted,border:`1px solid ${colors[status]||C.border}`,borderRadius:10,padding:"2px 8px",letterSpacing:1}}>
+        {status==="live"?"🟢":status==="error"?"🔴":status==="loading"?"⏳":"⚪"} {labels[status]||status}
+      </div>
     </div>
   );
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────
-function App() {
-  const [darkMode, setDarkMode]       = useState(true);
-  const [levelId, setLevelId]         = useState(3);
-  const [sim, setSim]                 = useState(null);
-  const [tab, setTab]                 = useState("groups");
-  const [grpPage, setGrpPage]         = useState(0);
-  const [liveStrengths, setLiveStrengths] = useState(null);
-  const [lockedResults, setLockedResults] = useState(null);
-  const [liveStatus, setLiveStatus]   = useState("loading");
-  const [lastUpdated, setLastUpdated] = useState(null);
+function App(){
+  const[dark,setDark]=useState(true);
+  const[lang,setLang]=useState('es');
+  const[levelId,setLevelId]=useState(3);
+  const[sim,setSim]=useState(null);
+  const[tab,setTab]=useState('groups');
+  const[grpPage,setGrpPage]=useState(0);
+  const[ls,setLs]=useState(null);
+  const[locked,setLocked]=useState(null);
+  const[liveStatus,setLiveStatus]=useState('loading');
+  const[liveMatches,setLiveMatches]=useState([]);
+  const[lastUpd,setLastUpd]=useState(null);
+  const[whatif,setWhatif]=useState({});
+  const isAdmin=checkAdmin();
+  const C=dark?DARK:LIGHT;
+  const t=T[lang];
 
-  const C = darkMode ? DARK : LIGHT;
-
-  // ── Load live data from Supabase ──────────────────────────
-  useEffect(() => {
-    async function loadLiveData() {
-      setLiveStatus("loading");
-      try {
-        // Fetch team strengths (form scores)
-        const teams = await supaFetch('teams?select=id,form_score,base_strength');
-        // Fetch locked match results
-        const locked = await supaFetch('matches?select=home_team,away_team,home_score,away_score,competition&locked=eq.true&competition=eq.WC2026');
-
-        if (teams && teams.length > 0) {
-          const strengthMap = {};
-          teams.forEach(t => { strengthMap[t.id] = { form_score: t.form_score || 0 }; });
-          setLiveStrengths(strengthMap);
-        }
-
-        if (locked && locked.length > 0) {
-          const lockMap = {};
-          locked.forEach(m => {
-            const key = `${m.home_team}|${m.away_team}`;
-            lockMap[key] = { home: m.home_score, away: m.away_score };
-          });
-          setLockedResults(lockMap);
-        }
-
-        setLiveStatus(teams && teams.length > 0 ? "live" : "cached");
-        setLastUpdated(new Date().toLocaleTimeString());
-      } catch {
-        setLiveStatus("error");
-      }
+  useEffect(()=>{
+    async function load(){
+      setLiveStatus('loading');
+      try{
+        const[teams,lockedM,live]=await Promise.all([
+          supaFetch('teams?select=id,form_score'),
+          supaFetch('matches?locked=eq.true&competition=eq.WC2026&select=home_team,away_team,home_score,away_score'),
+          supaFetch('matches?status=eq.IN_PLAY&select=id,home_team,away_team,home_score,away_score'),
+        ]);
+        if(teams&&teams.length>0){const m={};teams.forEach(t=>{m[t.id]={form_score:t.form_score||0};});setLs(m);}
+        if(lockedM&&lockedM.length>0){const m={};lockedM.forEach(r=>{m[`${r.home_team}|${r.away_team}`]={home:r.home_score,away:r.away_score};});setLocked(m);}
+        setLiveMatches(live||[]);
+        setLiveStatus(teams&&teams.length>0?'live':'cached');
+        setLastUpd(new Date().toLocaleTimeString());
+      }catch{setLiveStatus('error');}
     }
-    loadLiveData();
-    // Refresh every 5 minutes
-    const interval = setInterval(loadLiveData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+    load();
+    const iv=setInterval(load,5*60*1000);
+    return()=>clearInterval(iv);
+  },[]);
 
-  // Apply dark/light to body
-  useEffect(() => {
-    document.body.className = darkMode ? "" : "light";
-    document.body.style.background = C.bg;
-  }, [darkMode]);
+  useEffect(()=>{document.body.className=dark?"":"light";document.body.style.background=C.bg;},[dark]);
+  useEffect(()=>{setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null));},[levelId,locked,ls,whatif]);
 
-  const resim = useCallback(() => setSim(runSim(levelId, lockedResults, liveStrengths)), [levelId, lockedResults, liveStrengths]);
-
-  useEffect(() => { setSim(runSim(levelId, lockedResults, liveStrengths)); }, [levelId, lockedResults, liveStrengths]);
-
-  if (!sim) return (
-    <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontFamily:"Georgia",fontSize:18}}>
-      <OlivosLogo size={40} color={C.gold}/> &nbsp; Loading…
+  if(!sim)return(
+    <div style={{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:C.gold}}>
+      <OlivosLogo size={48} color={C.gold}/>
+      <span style={{fontSize:14,letterSpacing:2}}>Cargando...</span>
     </div>
   );
 
-  const TABS = [
-    {id:"groups",label:"👥 Groups"},
-    {id:"bracket",label:"🏟️ Bracket"},
-    {id:"r32",label:"⚔️ R32"},
-    {id:"r16",label:"🔵 R16"},
-    {id:"qfsf",label:"🔥 QF/SF"},
-    {id:"final",label:"🥇 Final"},
-    {id:"circled",label:"🟣 My Games"},
+  const curLv=LEVELS.find(l=>l.id===levelId);
+  const TABS=[...t.tabIds.map((id,i)=>({id,label:t.tabs[i]}))];
+  if(isAdmin)TABS.push({id:'admin',label:'🔐 Admin'});
+
+  const circledList=[
+    {label:"Dieciseisavos · Los Ángeles",m:sim.r32.find(m=>m.id==="M84")},
+    {label:"Dieciseisavos · Ciudad de México",m:sim.r32.find(m=>m.id==="M79")},
+    {label:"Octavos · Ciudad de México",m:sim.r16.find(m=>m.id==="M92")},
+    {label:"Octavos · Atlanta",m:sim.r16.find(m=>m.id==="M95")},
+    {label:"Cuartos · Boston",m:sim.qf.find(m=>m.id==="M97")},
+    {label:"Semis · Atlanta",m:sim.sf.find(m=>m.id==="M102")},
+    {label:"🏆 Gran Final · East Rutherford NJ",m:sim.final},
   ];
 
-  const circledList = [
-    {label:"R32 · Los Angeles",      m:sim.r32.find(m=>m.id==="M84")},
-    {label:"R32 · Mexico City",      m:sim.r32.find(m=>m.id==="M79")},
-    {label:"R16 · Mexico City",      m:sim.r16.find(m=>m.id==="M92")},
-    {label:"R16 · Atlanta",          m:sim.r16.find(m=>m.id==="M95")},
-    {label:"QF · Boston",            m:sim.qf.find(m=>m.id==="M97")},
-    {label:"SF · Atlanta",           m:sim.sf.find(m=>m.id==="M102")},
-    {label:"🏆 Final · East Rutherford NJ", m:sim.final},
-  ];
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40,backgroundImage:`radial-gradient(ellipse at 50% 100%,${C.gold}08 0%,transparent 60%)`}}>
 
-  const curLevel = LEVELS.find(l => l.id===levelId);
-
-  return (
-    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"Georgia,serif",paddingBottom:40,
-      // Subtle Olivos watermark
-      backgroundImage:`radial-gradient(ellipse at 50% 100%, ${C.gold}08 0%, transparent 60%)`,
-    }}>
-
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div style={{background:C.headerBg,borderBottom:`2px solid ${C.gold}`,padding:"12px 14px"}}>
-
-        {/* Top row: Logo + title + controls */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-          {/* Left: Logo + branding */}
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <OlivosLogo size={44} color={C.gold}/>
             <div>
               <div style={{fontSize:8,letterSpacing:5,color:C.gold,fontWeight:"700"}}>OLIVOS</div>
-              <div style={{fontSize:20,fontWeight:"900",color:C.text,letterSpacing:1}}>PREDICTOR</div>
-              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>WORLD CUP 2026 · SIMULATOR</div>
+              <div style={{fontSize:20,fontWeight:"900",color:C.text,letterSpacing:1}}>{t.appName.toUpperCase()}</div>
+              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.appSub}</div>
             </div>
           </div>
-
-          {/* Right: Champion + controls */}
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <LiveBadge liveStatus={liveStatus} C={C}/>
-              {/* Dark/Light toggle */}
-              <button onClick={()=>setDarkMode(d=>!d)} style={{
-                padding:"4px 10px",borderRadius:16,border:`1px solid ${C.border}`,
-                background:"transparent",color:C.muted,fontSize:11,cursor:"pointer",
-              }}>
-                {darkMode ? "☀️ Light" : "🌙 Dark"}
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <LiveBadge status={liveStatus} liveMatches={liveMatches} C={C} t={t}/>
+              <button onClick={()=>setDark(d=>!d)} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:10,cursor:"pointer"}}>
+                {dark?"☀️":"🌙"}
+              </button>
+              <button onClick={()=>setLang(l=>l==='es'?'en':'es')} style={{padding:"3px 10px",borderRadius:14,border:`1px solid ${C.border}`,background:`${C.accent}11`,color:C.accent,fontSize:10,fontWeight:"700",cursor:"pointer"}}>
+                {lang==='es'?'EN':'ES'}
               </button>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>PREDICTED CHAMPION</div>
+              <div style={{fontSize:8,color:C.muted,letterSpacing:2}}>{t.champion}</div>
               <div style={{fontSize:17,fontWeight:"700",color:C.gold}}>{fl(sim.final.w)} {sim.final.w}</div>
-              <div style={{fontSize:8.5,color:C.muted}}>Rank #{FIFA_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb} · NJ</div>
+              <div style={{fontSize:8,color:C.muted}}>#{INTL_RANK[sim.final.w]} · Final {sim.final.sa}–{sim.final.sb}</div>
             </div>
           </div>
         </div>
-
         {/* Level selector */}
         <div style={{marginTop:10}}>
-          <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:6}}>SIMULATION LEVEL</div>
+          <div style={{fontSize:8,color:C.muted,letterSpacing:2,marginBottom:6}}>{t.simLevel.toUpperCase()}</div>
           <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {LEVELS.map(lv => (
-              <button key={lv.id} onClick={()=>setLevelId(lv.id)} style={{
-                padding:"4px 8px",borderRadius:7,cursor:"pointer",fontSize:10,fontFamily:"Georgia",
-                background:levelId===lv.id?`${LEVEL_COLORS[lv.id]}22`:"transparent",
-                color:levelId===lv.id?LEVEL_COLORS[lv.id]:C.muted,
-                border:`1.5px solid ${levelId===lv.id?LEVEL_COLORS[lv.id]:C.border}`,
-                fontWeight:levelId===lv.id?"700":"400",
-              }}>{lv.label}</button>
+            {LEVELS.map(lv=>(
+              <button key={lv.id} onClick={()=>setLevelId(lv.id)} style={{padding:"4px 8px",borderRadius:7,fontSize:10,background:levelId===lv.id?`${LEVEL_COLORS[lv.id]}22`:"transparent",color:levelId===lv.id?LEVEL_COLORS[lv.id]:C.muted,border:`1.5px solid ${levelId===lv.id?LEVEL_COLORS[lv.id]:C.border}`,fontWeight:levelId===lv.id?"700":"400"}}>
+                {t.levels[lv.id]}
+              </button>
             ))}
           </div>
-          {curLevel && <div style={{marginTop:5,fontSize:8.5,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{curLevel.desc}</div>}
+          {curLv&&<div style={{marginTop:5,fontSize:8.5,color:LEVEL_COLORS[levelId],fontStyle:"italic"}}>{t.levelDescs[levelId]}</div>}
         </div>
-
-        {/* Action buttons */}
+        {/* Action row */}
         <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
-          <button onClick={resim} style={{padding:"4px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,cursor:"pointer",fontSize:10,letterSpacing:1,fontFamily:"Georgia"}}>
-            🔄 Resimulate
+          <button onClick={()=>setSim(runSim(levelId,locked,ls,Object.keys(whatif).length>0?whatif:null))} style={{padding:"4px 14px",background:"transparent",border:`1px solid ${C.gold}`,color:C.gold,borderRadius:20,fontSize:10,letterSpacing:1}}>
+            🔄 {t.resim}
           </button>
-          <ShareButton sim={sim} C={C}/>
-          {lastUpdated && <span style={{fontSize:8,color:C.muted}}>Data updated: {lastUpdated}</span>}
+          <ShareBtn sim={sim} C={C} t={t}/>
+          {lastUpd&&<span style={{fontSize:8,color:C.muted}}>{t.dataUpdated}: {lastUpd}</span>}
+          {Object.keys(whatif).length>0&&<span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,border:`1px solid ${C.blue}`,borderRadius:10,padding:"2px 8px"}}>🔀 What-If activo</span>}
         </div>
       </div>
 
-      {/* ── TABS ── */}
+      {/* TABS */}
       <div style={{display:"flex",overflowX:"auto",borderBottom:`1px solid ${C.border}`,background:C.surface}}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{
-            padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",
-            color:tab===t.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,
-            borderBottom:tab===t.id?`2px solid ${C.gold}`:"2px solid transparent",
-            cursor:"pointer",fontWeight:tab===t.id?"700":"400",
-          }}>{t.label}</button>
+        {TABS.map(tb=>(
+          <button key={tb.id} onClick={()=>setTab(tb.id)} style={{padding:"9px 12px",whiteSpace:"nowrap",background:"none",border:"none",color:tab===tb.id?C.gold:C.muted,fontFamily:"Georgia",fontSize:11,borderBottom:tab===tb.id?`2px solid ${C.gold}`:"2px solid transparent",cursor:"pointer",fontWeight:tab===tb.id?"700":"400"}}>
+            {tb.label}
+          </button>
         ))}
       </div>
 
       <div style={{padding:"12px 14px"}}>
 
-        {/* ── GROUPS ── */}
-        {tab==="groups" && (
+        {tab==='groups'&&(
           <div>
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
-              {["A-F","G-L"].map((l,i)=>(
-                <button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?C.gold+"11":"transparent",color:grpPage===i?C.gold:C.muted,cursor:"pointer",fontSize:10,fontFamily:"Georgia"}}>
-                  Groups {l}
+              {[t.groupsAF,t.groupsGL].map((l,i)=>(
+                <button key={i} onClick={()=>setGrpPage(i)} style={{padding:"4px 14px",borderRadius:16,border:`1px solid ${grpPage===i?C.gold:C.border}`,background:grpPage===i?C.gold+"11":"transparent",color:grpPage===i?C.gold:C.muted,cursor:"pointer",fontSize:10}}>
+                  {l}
                 </button>
               ))}
-              <span style={{fontSize:8.5,color:C.muted,flex:1}}>
-                Best 3rd: {sim.best8.map(x=>`${x.team.split(" ")[0]}(G${x.group})`).join(", ")}
-              </span>
+              <span style={{fontSize:8,color:C.muted}}>{t.best3rd}: {sim.best8.map(x=>`${x.team.split(" ")[0]}(${x.group})`).join(", ")}</span>
             </div>
-            {Object.entries(sim.gr)
-              .filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g))
-              .map(([g,data])=><GroupTable key={g} grp={g} data={data} C={C}/>)}
+            {Object.entries(sim.gr).filter(([g])=>grpPage===0?"ABCDEF".includes(g):"GHIJKL".includes(g)).map(([g,data])=>(
+              <GroupTable key={g} grp={g} data={data} C={C} t={t}/>
+            ))}
           </div>
         )}
 
-        {tab==="bracket" && <VisualBracket sim={sim} C={C}/>}
+        {tab==='bracket'&&<VisualBracket sim={sim} C={C} t={t}/>}
 
-        {tab==="r32" && (
+        {tab==='r32'&&(
           <div>
-            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 MATCHES · JUNE 28 – JULY 3</div>
-            <MatchGrid matches={sim.r32} circled={sim.CIRCLED} C={C}/>
+            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>16 PARTIDOS · 28 JUN – 3 JUL</div>
+            <MatchGrid matches={sim.r32} circled={sim.CIRCLED} C={C} t={t}/>
           </div>
         )}
 
-        {tab==="r16" && (
+        {tab==='r16'&&(
           <div>
-            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 MATCHES · JULY 4–7</div>
-            <MatchGrid matches={sim.r16} circled={sim.CIRCLED} C={C}/>
+            <div style={{fontSize:8.5,color:C.muted,marginBottom:10,letterSpacing:1}}>8 PARTIDOS · 4–7 JUL</div>
+            <MatchGrid matches={sim.r16} circled={sim.CIRCLED} C={C} t={t}/>
           </div>
         )}
 
-        {tab==="qfsf" && (
+        {tab==='qfsf'&&(
           <div>
-            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>QUARTER-FINALS · JULY 9–10</div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>CUARTOS DE FINAL · 9–10 JUL</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
               {sim.qf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}
             </div>
-            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMI-FINALS · JULY 13–15</div>
+            <div style={{fontSize:8.5,color:C.gold,letterSpacing:2,marginBottom:8,fontWeight:"700"}}>SEMIFINALES · 13–15 JUL</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {sim.sf.map((m,i)=><KOCard key={i} m={m} circled={sim.CIRCLED.has(m.id)} C={C}/>)}
             </div>
           </div>
         )}
 
-        {tab==="final" && (
+        {tab==='final'&&(
           <div>
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"11px",marginBottom:12}}>
-              <div style={{fontSize:8.5,color:C.muted,letterSpacing:2,marginBottom:7}}>🥉 THIRD PLACE · {sim.bronze.venue} · July 18</div>
+              <div style={{fontSize:8.5,color:C.muted,letterSpacing:2,marginBottom:7}}>🥉 {t.thirdPlace} · {sim.bronze.venue} · 18 Jul</div>
               <KOCard m={sim.bronze} circled={false} C={C}/>
             </div>
             <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:16,padding:"16px",boxShadow:`0 0 40px ${C.gold}44`,position:"relative",overflow:"hidden"}}>
               <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse at 50% 0%,${C.gold}18,transparent 70%)`,pointerEvents:"none"}}/>
               <div style={{textAlign:"center",marginBottom:14}}>
-                <div style={{fontSize:9,color:C.gold,letterSpacing:5,fontWeight:"700"}}>🏆 THE FINAL</div>
-                <div style={{fontSize:10,color:C.muted,marginTop:2}}>M104 · East Rutherford Stadium, NJ · July 19 2026</div>
+                <div style={{fontSize:9,color:C.gold,letterSpacing:5,fontWeight:"700"}}>🏆 {t.finalMatch}</div>
+                <div style={{fontSize:10,color:C.muted,marginTop:2}}>M104 · East Rutherford NJ · 19 Jul 2026</div>
               </div>
               <div style={{display:"flex",justifyContent:"space-around",alignItems:"center"}}>
                 {[{t:sim.final.a,s:sim.final.sa},{t:sim.final.b,s:sim.final.sb}].map((side,i)=>{
                   const isW=sim.final.w===side.t;
-                  return (
+                  return(
                     <div key={i} style={{textAlign:"center",flex:1}}>
                       <div style={{fontSize:48}}>{fl(side.t)}</div>
-                      <div style={{fontSize:9,color:C.muted}}>Rank #{FIFA_RANK[side.t]||"?"}</div>
+                      <div style={{fontSize:9,color:C.muted}}>{t.rank} #{INTL_RANK[side.t]||"?"}</div>
                       <div style={{fontSize:13,fontWeight:"700",color:isW?C.gold:C.muted,marginTop:2}}>{side.t}</div>
                       <div style={{fontSize:28,fontWeight:"900",color:isW?C.gold:C.muted,marginTop:4}}>{side.s}</div>
-                      {isW && <div style={{fontSize:9,color:C.gold,marginTop:3,letterSpacing:1}}>🏆 CHAMPION</div>}
+                      {isW&&<div style={{fontSize:9,color:C.gold,marginTop:3,letterSpacing:1}}>🏆 CAMPEÓN</div>}
                     </div>
                   );
                 })}
@@ -923,51 +1173,50 @@ function App() {
               <div style={{marginTop:14,textAlign:"center",padding:"8px",background:C.gold+"18",borderRadius:10,border:`1px solid ${C.goldDim}`}}>
                 <div style={{fontSize:26}}>{fl(sim.final.w)}</div>
                 <div style={{fontSize:15,fontWeight:"900",color:C.gold}}>{sim.final.w}</div>
-                <div style={{fontSize:8.5,color:C.muted,letterSpacing:2}}>WORLD CUP 2026 CHAMPION</div>
+                <div style={{fontSize:8.5,color:C.muted,letterSpacing:2}}>{t.worldChamp}</div>
               </div>
             </div>
           </div>
         )}
 
-        {tab==="circled" && (
+        {tab==='circled'&&(
           <div>
-            <div style={{fontSize:8.5,color:C.muted,textAlign:"center",marginBottom:12,letterSpacing:1}}>YOUR 7 PURPLE-CIRCLED GAMES FROM THE SCHEDULE</div>
+            <div style={{fontSize:8.5,color:C.muted,textAlign:"center",marginBottom:12,letterSpacing:1}}>{t.myGames}</div>
             {circledList.map(({label,m},i)=>{
               const isFinal=m?.id==="M104";
-              return (
-                <div key={i} style={{
-                  background:isFinal?C.cardGold:C.card,
-                  border:`2px solid ${isFinal?C.gold:C.border}`,borderRadius:12,padding:"11px 13px",marginBottom:9,
-                  boxShadow:isFinal?`0 0 20px ${C.gold}44`:"none",
-                }}>
-                  <div style={{fontSize:8.5,color:isFinal?C.gold:C.accent,fontWeight:"700",letterSpacing:2,marginBottom:7}}>
-                    {isFinal?"🏆":"🟣"} {label}
-                  </div>
+              return(
+                <div key={i} style={{background:isFinal?C.cardGold:C.card,border:`2px solid ${isFinal?C.gold:C.border}`,borderRadius:12,padding:"11px 13px",marginBottom:9,boxShadow:isFinal?`0 0 20px ${C.gold}44`:"none"}}>
+                  <div style={{fontSize:8.5,color:isFinal?C.gold:C.accent,fontWeight:"700",letterSpacing:2,marginBottom:7}}>{isFinal?"🏆":"🟣"} {label}</div>
                   {[{t:m?.a,s:m?.sa,w:m?.w===m?.a},{t:m?.b,s:m?.sb,w:m?.w===m?.b}].map((row,j)=>(
                     <div key={j} style={{display:"flex",alignItems:"center",gap:7,marginBottom:j===0?5:0}}>
                       <span style={{fontSize:22}}>{fl(row.t)}</span>
-                      <span style={{fontSize:8.5,color:C.muted}}>#{FIFA_RANK[row.t]||"?"}</span>
+                      <span style={{fontSize:8.5,color:C.muted}}>#{INTL_RANK[row.t]||"?"}</span>
                       <span style={{fontSize:13,fontWeight:row.w?"700":"400",color:row.w?C.gold:C.text,flex:1}}>{row.t||"TBD"}</span>
                       <span style={{fontSize:18,fontWeight:"900",color:row.w?C.gold:"#888"}}>{row.s??"-"}</span>
                     </div>
                   ))}
                   <div style={{marginTop:7,padding:"4px 9px",background:isFinal?C.gold+"18":C.green+"18",borderRadius:7,fontSize:10,color:isFinal?C.gold:C.green,fontWeight:"700"}}>
-                    {isFinal?"🏆":"✓"} Winner: {fl(m?.w)} {m?.w}
+                    {isFinal?"🏆":"✓"} {t.winner}: {fl(m?.w)} {m?.w}
                   </div>
-                  <div style={{marginTop:3,fontSize:8,color:C.muted}}>Match {m?.id} · {m?.venue}</div>
+                  <div style={{marginTop:3,fontSize:8,color:C.muted}}>Partido {m?.id} · {m?.venue}</div>
                 </div>
               );
             })}
           </div>
         )}
 
+        {tab==='engine'&&<EngineTab levelId={levelId} locked={locked} ls={ls} C={C} t={t}/>}
+
+        {tab==='whatif'&&<WhatIfTab sim={sim} locked={locked} ls={ls} levelId={levelId} onWhatifChange={setWhatif} whatif={whatif} C={C} t={t}/>}
+
+        {tab==='admin'&&isAdmin&&<AdminTab sim={sim} locked={locked} C={C} t={t}/>}
+
       </div>
 
-      {/* ── FOOTER ── */}
-      <div style={{marginTop:36,padding:"12px 14px",borderTop:`1px solid ${C.border}`,
-        display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+      {/* FOOTER */}
+      <div style={{marginTop:36,padding:"12px 14px",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
         <OlivosLogo size={18} color={C.goldDim}/>
-        <span style={{fontSize:9,color:C.border,letterSpacing:2}}>OLIVOS PREDICTOR · WC2026 · SIMULATION ONLY</span>
+        <span style={{fontSize:9,color:C.border,letterSpacing:2}}>OLIVOS PREDICTOR · WC2026 · SOLO SIMULACIÓN</span>
       </div>
 
     </div>
