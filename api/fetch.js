@@ -74,7 +74,10 @@ async function fetchAF(key){
 
 export default async function handler(req,res){
   const secret=process.env.CRON_SECRET;
-  if(secret&&req.headers['authorization']!==`Bearer ${secret}`)return res.status(401).json({error:'Unauthorized'});
+  // Accept auth via header OR query param (for browser testing)
+  const authHeader=req.headers['authorization']===`Bearer ${secret}`;
+  const authQuery=req.query?.key===secret;
+  if(secret&&!authHeader&&!authQuery)return res.status(401).json({error:'Unauthorized'});
 
   const SU=process.env.SUPABASE_URL,SK=process.env.SUPABASE_SERVICE_KEY;
   const FD=process.env.FOOTBALL_DATA_KEY,AF=process.env.API_FOOTBALL_KEY;
