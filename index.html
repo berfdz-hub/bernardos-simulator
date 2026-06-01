@@ -636,98 +636,171 @@ function EngineTab({levelId,locked,ls,C,t}){
   const[results,setResults]=useState(null);
   const[progress,setProgress]=useState(0);
   const[running,setRunning]=useState(false);
-  const[view,setView]=useState('stage'); // 'group' | 'stage'
+  const[view,setView]=useState('stage');
   const[sortCol,setSortCol]=useState('win');
   const[groupFilter,setGroupFilter]=useState('A');
   const[stageFilter,setStageFilter]=useState('win');
+  const[runCount,setRunCount]=useState(0);
 
-  const pct=v=>{
-    const color=v>=50?C.gold:v>=25?C.accent:v>=10?C.blue:C.muted;
-    return(<div style={{display:"flex",alignItems:"center",gap:4}}><div style={{flex:1,height:5,background:C.border,borderRadius:3,overflow:"hidden"}}><div style={{width:`${v}%`,height:"100%",background:color,borderRadius:3}}/></div><span style={{fontSize:11,fontWeight:"700",color,minWidth:34,textAlign:"right"}}>{v}%</span></div>);
+  const STAGES=[['win','🏆'],['final','Final'],['sf','Semis'],['qf','Cuartos'],['r16','Octavos'],['r32','Diec.'],['winGroup','1°Grp']];
+  const STAGE_LABELS={'win':'🏆 Campeón','final':'Final','sf':'Semis','qf':'Cuartos','r16':'Octavos','r32':'Dieciseisavos','winGroup':'1° de Grupo'};
+
+  const pctBar=(v,compact)=>{
+    const color=v>=50?C.gold:v>=20?C.accent:v>=8?C.blue:v>=2?C.muted:'#333';
+    const w=compact?60:80;
+    return(
+      <div style={{display:"flex",alignItems:"center",gap:3,minWidth:w}}>
+        <div style={{flex:1,height:compact?3:5,background:C.border,borderRadius:3,overflow:"hidden"}}>
+          <div style={{width:`${Math.min(v,100)}%`,height:"100%",background:color,borderRadius:3,transition:"width 0.4s"}}/>
+        </div>
+        <span style={{fontSize:compact?9:11,fontWeight:"700",color,minWidth:compact?28:34,textAlign:"right"}}>{v}%</span>
+      </div>
+    );
   };
-  const run=async()=>{setRunning(true);setResults(null);setProgress(0);const r=await runEngine(levelId,locked,ls,p=>setProgress(p));setResults(r);setRunning(false);};
+
+  const run=async()=>{
+    setRunning(true);setResults(null);setProgress(0);
+    const r=await runEngine(levelId,locked,ls,p=>setProgress(p));
+    setResults(r);setRunning(false);setRunCount(c=>c+1);
+  };
 
   const groupResults=useMemo(()=>results?results.filter(r=>r.group===groupFilter).sort((a,b)=>b[sortCol]-a[sortCol]):[],[results,groupFilter,sortCol]);
-  const stageResults=useMemo(()=>results?[...results].sort((a,b)=>b[stageFilter]-a[stageFilter]).slice(0,16):[],[results,stageFilter]);
-
-  const STAGES=[['win','🏆 Campeón'],['final','Final'],['sf','Semis'],['qf','Cuartos'],['r16','Octavos'],['r32','Diec.'],['winGroup','1° Grupo']];
+  const stageResults=useMemo(()=>results?[...results].sort((a,b)=>b[stageFilter]-a[stageFilter]):[],[results,stageFilter]);
 
   return(
     <div>
-      <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:14,padding:"14px 16px",marginBottom:14}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <img src="./images/Olivos_Oracle_rojo.png" style={{width:40,height:40,objectFit:"contain",borderRadius:8}} alt=""/>
-          <div><div style={{fontSize:15,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div><div style={{fontSize:10,color:C.muted}}>{t.engineSub}</div></div>
+      {/* Header */}
+      <div style={{background:C.cardGold,border:`2px solid ${C.gold}`,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+          <img src="./images/Olivos_Oracle_rojo.png" style={{width:36,height:36,objectFit:"contain",borderRadius:8}} alt=""/>
+          <div><div style={{fontSize:14,fontWeight:"900",color:C.gold,letterSpacing:2}}>{t.engineTitle}</div><div style={{fontSize:9,color:C.muted}}>{t.engineSub}</div></div>
         </div>
-        <div style={{fontSize:11,color:C.text,lineHeight:1.6,borderTop:`1px solid ${C.goldDim}`,paddingTop:8}}>{t.engineDesc}</div>
+        <div style={{fontSize:10,color:C.text,lineHeight:1.5,borderTop:`1px solid ${C.goldDim}`,paddingTop:8}}>{t.engineDesc}</div>
+        <div style={{fontSize:9,color:C.muted,marginTop:6,fontStyle:"italic"}}>💡 Los porcentajes son probabilidades estadísticas — cada simulación individual puede dar un resultado diferente</div>
       </div>
-      {!running&&<button onClick={run} style={{width:"100%",padding:"14px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:14,fontWeight:"900",letterSpacing:2,marginBottom:14}}>🧬 {t.runEngine}</button>}
+
+      {/* Run button */}
+      {!running&&(
+        <button onClick={run} style={{width:"100%",padding:"13px",background:`${C.gold}22`,border:`2px solid ${C.gold}`,borderRadius:12,color:C.gold,fontSize:13,fontWeight:"900",letterSpacing:1,marginBottom:12}}>
+          🧬 {t.runEngine} {runCount>0&&`(#${runCount+1})`}
+        </button>
+      )}
+
+      {/* Progress */}
       {running&&(
-        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px",marginBottom:14}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><div className="spin" style={{fontSize:14}}>⚙️</div><span style={{fontSize:12,color:C.gold,fontWeight:"700"}}>{t.engineRunning}... {progress}%</span></div>
-          <div style={{width:"100%",height:12,background:C.border,borderRadius:6,overflow:"hidden"}}><div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,transition:"width 0.1s"}}/></div>
-          <div style={{fontSize:9,color:C.muted,marginTop:6,textAlign:"center"}}>10,000 simulaciones</div>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <div className="spin" style={{fontSize:13}}>⚙️</div>
+            <span style={{fontSize:11,color:C.gold,fontWeight:"700"}}>{t.engineRunning}... {progress}%</span>
+          </div>
+          <div style={{width:"100%",height:10,background:C.border,borderRadius:5,overflow:"hidden"}}>
+            <div style={{width:`${progress}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.accent})`,transition:"width 0.05s"}}/>
+          </div>
+          <div style={{fontSize:8,color:C.muted,marginTop:4,textAlign:"center"}}>
+            {Math.round(progress*100)}/10,000 simulaciones
+          </div>
         </div>
       )}
+
+      {/* Results */}
       {results&&!running&&(
         <div>
-          <div style={{fontSize:9,color:C.green,marginBottom:12,textAlign:"center",fontWeight:"700"}}>✅ {t.engineDone}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{fontSize:9,color:C.green,fontWeight:"700"}}>✅ {t.engineDone} · Simulación #{runCount}</div>
+            <button onClick={run} style={{padding:"4px 10px",background:"transparent",border:`1px solid ${C.gold}`,borderRadius:10,color:C.gold,fontSize:9}}>🔄 Volver a correr</button>
+          </div>
+
           {/* View toggle */}
-          <div style={{display:"flex",gap:6,marginBottom:12}}>
-            {[['group',t.byGroup],['stage',t.byStage]].map(([v,l])=>(
-              <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px",borderRadius:10,fontSize:11,fontWeight:"700",background:view===v?C.gold+"22":"transparent",color:view===v?C.gold:C.muted,border:`1.5px solid ${view===v?C.gold:C.border}`}}>{l}</button>
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            {[['group','👥 Por Grupo'],['stage','📊 Por Etapa']].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"7px",borderRadius:10,fontSize:11,fontWeight:"700",background:view===v?C.gold+"22":"transparent",color:view===v?C.gold:C.muted,border:`1.5px solid ${view===v?C.gold:C.border}`}}>{l}</button>
             ))}
           </div>
 
+          {/* GROUP VIEW */}
           {view==='group'&&(
             <div>
-              {/* Group selector */}
-              <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
-                {Object.keys(GROUPS).map(g=>(<button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"4px 10px",borderRadius:8,fontSize:10,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`,fontWeight:groupFilter===g?"700":"400"}}>{g}</button>))}
+              <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
+                {Object.keys(GROUPS).map(g=>(<button key={g} onClick={()=>setGroupFilter(g)} style={{padding:"4px 10px",borderRadius:8,fontSize:10,background:groupFilter===g?C.accent+"22":"transparent",color:groupFilter===g?C.accent:C.muted,border:`1px solid ${groupFilter===g?C.accent:C.border}`,fontWeight:groupFilter===g?"700":"400"}}>Grp {g}</button>))}
               </div>
-              <div style={{fontSize:9,color:C.muted,marginBottom:6}}>{t.sortBy}: {STAGES.map(([k,l])=>(<button key={k} onClick={()=>setSortCol(k)} style={{marginLeft:4,padding:"2px 6px",borderRadius:6,fontSize:8,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{l}</button>))}</div>
+              <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:8,color:C.muted}}>Ordenar:</span>
+                {STAGES.map(([k,l])=>(<button key={k} onClick={()=>setSortCol(k)} style={{padding:"2px 7px",borderRadius:6,fontSize:8,background:sortCol===k?C.gold+"22":"transparent",color:sortCol===k?C.gold:C.muted,border:`1px solid ${sortCol===k?C.gold:C.border}`}}>{l}</button>))}
+              </div>
               <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                {/* Header */}
+                <div style={{display:"grid",gridTemplateColumns:"24px 1fr 28px 28px 28px 28px 28px 28px 28px",gap:4,padding:"6px 10px",background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:7,color:C.muted}}>#</span>
+                  <span style={{fontSize:7,color:C.muted}}>Selección</span>
+                  {STAGES.map(([k,l])=>(<span key={k} style={{fontSize:7,color:sortCol===k?C.gold:C.muted,textAlign:"center",fontWeight:sortCol===k?"700":"400"}}>{l}</span>))}
+                </div>
                 {groupResults.map((row,i)=>(
-                  <div key={row.team} style={{borderTop:i>0?`1px solid ${C.border}`:"none",padding:"10px 12px",background:i===0?`${C.gold}11`:"transparent"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                      <span style={{fontSize:12,color:C.muted,fontWeight:"700",minWidth:16}}>{i+1}</span>
-                      <span style={{fontSize:18}}>{fl(row.team)}</span>
-                      <span style={{fontSize:12,fontWeight:i===0?"700":"400",color:i===0?C.gold:C.text,flex:1}}>{row.team}</span>
-                      <span style={{fontSize:9,background:C.accent+"22",color:C.accent,padding:"1px 6px",borderRadius:4,fontWeight:"700"}}>Grupo {row.group}</span>
+                  <div key={row.team} style={{display:"grid",gridTemplateColumns:"24px 1fr 28px 28px 28px 28px 28px 28px 28px",gap:4,padding:"7px 10px",borderTop:i>0?`1px solid ${C.border}`:"none",background:i===0?`${C.gold}11`:"transparent",alignItems:"center"}}>
+                    <span style={{fontSize:10,color:i===0?C.gold:C.muted,fontWeight:"700"}}>{i+1}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{fl(row.team)}</span>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:10,fontWeight:i===0?"700":"400",color:i===0?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.team}</div>
+                        <div style={{fontSize:7,color:C.muted}}>#{FIFA_RANK[row.team]||"?"}</div>
+                      </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
-                      {STAGES.map(([k,l])=>(
-                        <div key={k} style={{textAlign:"center"}}>
-                          <div style={{fontSize:7,color:C.muted,marginBottom:2}}>{l}</div>
-                          {pct(row[k])}
-                        </div>
-                      ))}
-                    </div>
+                    {STAGES.map(([k])=>{
+                      const v=row[k];
+                      const color=v>=50?C.gold:v>=20?C.accent:v>=5?C.blue:C.muted;
+                      return(<div key={k} style={{textAlign:"center"}}><span style={{fontSize:10,fontWeight:v>=20?"700":"400",color}}>{v}%</span></div>);
+                    })}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* STAGE VIEW — ALL 48 */}
           {view==='stage'&&(
             <div>
-              {/* Stage selector */}
-              <div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>
-                {STAGES.map(([k,l])=>(<button key={k} onClick={()=>setStageFilter(k)} style={{padding:"5px 10px",borderRadius:8,fontSize:10,fontWeight:stageFilter===k?"700":"400",background:stageFilter===k?C.gold+"22":"transparent",color:stageFilter===k?C.gold:C.muted,border:`1px solid ${stageFilter===k?C.gold:C.border}`}}>{l}</button>))}
-              </div>
-              <div style={{fontSize:10,color:C.muted,marginBottom:8,letterSpacing:1}}>TOP 16 — {STAGES.find(([k])=>k===stageFilter)?.[1]}</div>
-              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                {stageResults.map((row,i)=>(
-                  <div key={row.team} style={{borderTop:i>0?`1px solid ${C.border}`:"none",padding:"8px 12px",background:i===0?`${C.gold}18`:i<3?`${C.gold}08`:"transparent",display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:13,color:i===0?C.gold:C.muted,fontWeight:"700",minWidth:20}}>{i+1}</span>
-                    <span style={{fontSize:18}}>{fl(row.team)}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:11,color:i===0?C.gold:C.text,fontWeight:i===0?"700":"400"}}>{row.team}</div>
-                      <div style={{fontSize:8,color:C.muted}}>Grupo {row.group} · #{FIFA_RANK[row.team]||"?"}</div>
-                    </div>
-                    <div style={{minWidth:80}}>{pct(row[stageFilter])}</div>
-                  </div>
+              <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap"}}>
+                {[['win','🏆 Campeón'],['final','Final'],['sf','Semis'],['qf','Cuartos'],['r16','Octavos'],['r32','Diec.'],['winGroup','1° Grupo']].map(([k,l])=>(
+                  <button key={k} onClick={()=>setStageFilter(k)} style={{padding:"5px 9px",borderRadius:8,fontSize:10,fontWeight:stageFilter===k?"700":"400",background:stageFilter===k?C.gold+"22":"transparent",color:stageFilter===k?C.gold:C.muted,border:`1px solid ${stageFilter===k?C.gold:C.border}`}}>{l}</button>
                 ))}
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:9,color:C.muted,letterSpacing:1}}>48 SELECCIONES — {STAGE_LABELS[stageFilter]}</span>
+                <span style={{fontSize:8,color:C.muted}}>Nivel {levelId} · {['','Más Probable','Probable','Equilibrado','Sorprendente','Caos'][levelId]}</span>
+              </div>
+              <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                {stageResults.map((row,i)=>{
+                  const v=row[stageFilter];
+                  const barColor=v>=50?C.gold:v>=20?C.accent:v>=8?C.blue:v>=2?C.muted:'#2a2a2a';
+                  const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+                  return(
+                    <div key={row.team} style={{borderTop:i>0?`1px solid ${C.border}`:"none",padding:"8px 10px",background:i<3?`${C.gold}${i===0?'18':i===1?'10':'08'}`:"transparent"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:10,color:i<3?C.gold:C.muted,fontWeight:"700",minWidth:22,textAlign:"right"}}>{medal||i+1}</span>
+                        <span style={{fontSize:17,flexShrink:0}}>{fl(row.team)}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{fontSize:11,fontWeight:i<3?"700":"400",color:i===0?C.gold:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.team}</span>
+                            <span style={{fontSize:8,color:C.muted,flexShrink:0}}>Grp {row.group}</span>
+                          </div>
+                          <div style={{marginTop:3,display:"flex",gap:2,alignItems:"center"}}>
+                            <div style={{flex:1,height:4,background:C.border,borderRadius:2,overflow:"hidden"}}>
+                              <div style={{width:`${v}%`,height:"100%",background:barColor,borderRadius:2,transition:"width 0.5s"}}/>
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{fontSize:13,fontWeight:"900",color:barColor,minWidth:40,textAlign:"right"}}>{v}%</span>
+                      </div>
+                      {/* Show all stage probs as mini chips if selected is win */}
+                      {stageFilter==='win'&&v>0&&(
+                        <div style={{display:"flex",gap:3,marginTop:4,marginLeft:30,flexWrap:"wrap"}}>
+                          {[['r32',row.r32,'D'],['r16',row.r16,'O'],['qf',row.qf,'C'],['sf',row.sf,'S'],['final',row.final,'F']].map(([k,pv,lbl])=>pv>0?(
+                            <span key={k} style={{fontSize:8,color:C.muted,background:C.surface,borderRadius:4,padding:"1px 4px",border:`1px solid ${C.border}`}}>{lbl}:{pv}%</span>
+                          ):null)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
