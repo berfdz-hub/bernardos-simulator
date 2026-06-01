@@ -1,7 +1,8 @@
 {
-  "name": "olivos-predictor-scripts",
+  "name": "olivos-oracle-scripts",
   "version": "1.0.0",
-  "description": "Data fetcher for OlivosPredictor",
+  "type": "module",
+  "description": "Data fetcher for Olivos Oracle",
   "main": "fetch-results.js",
   "scripts": {
     "fetch": "node fetch-results.js",
