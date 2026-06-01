@@ -202,16 +202,47 @@ async function fetchAF() {
     }
   } catch(e) { console.log(`  AF WC error: ${e.message}`); }
 
-  await sleep(1000);
+  // Try multiple league IDs + date-based fetch for pre-WC friendlies
+  const friendlyLeagueIds = [9, 1160, 1161];
+  for (const lid of friendlyLeagueIds) {
+    await sleep(500);
+    try {
+      const r = await fetch(`https://v3.football.api-sports.io/fixtures?league=${lid}&season=2026&last=60`, { headers });
+      if (r.ok) {
+        const data = await r.json();
+        let cnt = 0;
+        for (const f of data.response||[]) {
+          const home = norm(f.teams?.home?.name||''), away = norm(f.teams?.away?.name||'');
+          if (!WC_TEAMS.has(home) && !WC_TEAMS.has(away)) continue;
+          const st = f.fixture?.status?.short;
+          if (['FT','AET','PEN'].includes(st)) {
+            results.push({
+              source:'api-football', competition:'FRIENDLY', apiId: String(f.fixture?.id),
+              homeTeam: home, awayTeam: away,
+              homeScore: f.goals?.home??null, awayScore: f.goals?.away??null,
+              status:'FINISHED', matchDate: f.fixture?.date, stage:'FRIENDLY',
+            }); cnt++;
+          }
+        }
+        if (cnt > 0) console.log(`  Friendlies (league ${lid}): ${cnt}`);
+      }
+    } catch(e) { console.log(`  AF league ${lid} error: ${e.message}`); }
+  }
+
+  // Also fetch by today's date to catch same-day results
   try {
-    const r = await fetch('https://v3.football.api-sports.io/fixtures?league=9&season=2026&last=60', { headers });
+    await sleep(500);
+    const today = new Date().toISOString().split('T')[0];
+    const r = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}&timezone=UTC`, { headers });
     if (r.ok) {
       const data = await r.json();
       let cnt = 0;
       for (const f of data.response||[]) {
         const home = norm(f.teams?.home?.name||''), away = norm(f.teams?.away?.name||'');
         if (!WC_TEAMS.has(home) && !WC_TEAMS.has(away)) continue;
-        if (f.fixture?.status?.short === 'FT') {
+        const st = f.fixture?.status?.short;
+        const ltype = f.league?.type || '';
+        if (['FT','AET','PEN'].includes(st) && ['International','Cup','Friendly'].some(t=>ltype.includes(t))) {
           results.push({
             source:'api-football', competition:'FRIENDLY', apiId: String(f.fixture?.id),
             homeTeam: home, awayTeam: away,
@@ -220,9 +251,10 @@ async function fetchAF() {
           }); cnt++;
         }
       }
-      console.log(`  Friendlies: ${cnt}`);
+      if (cnt > 0) console.log(`  Today's friendlies: ${cnt}`);
     }
-  } catch(e) { console.log(`  AF friendly error: ${e.message}`); }
+  } catch(e) { console.log(`  AF today error: ${e.message}`); }
+
   return results;
 }
 
