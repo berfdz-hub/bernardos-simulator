@@ -4,6 +4,7 @@
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
+import ws from 'ws';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const { FOOTBALL_DATA_KEY, API_FOOTBALL_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
@@ -12,7 +13,10 @@ if (!FOOTBALL_DATA_KEY || !API_FOOTBALL_KEY || !SUPABASE_URL || !SUPABASE_SERVIC
   console.error('❌ Missing env vars'); process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// Node 20 needs ws for WebSocket support, Node 22+ has it natively
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  realtime: { transport: ws },
+});
 
 // ── TEAM NAME MAP ─────────────────────────────────────────────
 const TEAM_MAP = {
